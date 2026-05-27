@@ -2,7 +2,15 @@ from pathlib import Path
 
 import pytest
 
-from reconbot.config import get_bool, get_int, get_path, get_section, get_str, load_config
+from reconbot.config import (
+    get_bool,
+    get_float,
+    get_int,
+    get_path,
+    get_section,
+    get_str,
+    load_config,
+)
 
 
 def test_load_config_reads_yaml(tmp_path: Path) -> None:
@@ -19,6 +27,7 @@ def test_load_config_reads_yaml(tmp_path: Path) -> None:
     assert get_path(logging_config, "file", Path("logs/default.log")) == Path("logs/test.log")
     assert get_bool(features_config, "enabled", False) is True
     assert get_int(features_config, "limit", 1) == 3
+    assert get_float(features_config, "limit", 1.0) == 3.0
 
 
 def test_load_config_rejects_non_mapping_yaml(tmp_path: Path) -> None:

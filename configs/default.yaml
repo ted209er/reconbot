@@ -3,3 +3,16 @@ logging:
 output:
   processed_dir: data/processed
   reports_dir: reports
+tools:
+  subfinder:
+    enabled: true
+    binary: subfinder
+    timeout: 120
+  httpx:
+    enabled: true
+    binary: httpx
+    timeout: 120
+  gau:
+    enabled: true
+    binary: gau
+    timeout: 120

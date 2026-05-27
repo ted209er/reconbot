@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Sequence
+from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlparse
 
 from reconbot.cli import parse_args
-from reconbot.config import get_path, get_section, load_config
+from reconbot.config import Config, get_bool, get_float, get_path, get_section, get_str, load_config
 from reconbot.logging_config import setup_logging
 from reconbot.models import ReconReport, ReconTarget, ToolResult
 from reconbot.reporting import write_markdown_report
@@ -20,11 +21,21 @@ from reconbot.tools.subfinder import find_subdomains
 REQUIRED_EXTERNAL_TOOLS = ("subfinder", "httpx", "gau")
 
 
+@dataclass(frozen=True, slots=True)
+class ToolSettings:
+    """Runtime settings for one external tool."""
+
+    enabled: bool
+    binary: str
+    timeout: float
+
+
 def run_workflow(domain: str, config_path: Path, verbose: bool) -> ReconReport:
     """Run the recon orchestration workflow."""
     config = load_config(config_path)
     logging_section = get_section(config, "logging")
     output_section = get_section(config, "output")
+    tool_settings = _load_tool_settings(get_section(config, "tools"))
     log_file = get_path(logging_section, "file", Path("logs/reconbot.log"))
     processed_dir = get_path(output_section, "processed_dir", Path("data/processed"))
     reports_dir = get_path(output_section, "reports_dir", Path("reports"))
@@ -36,22 +47,50 @@ def run_workflow(domain: str, config_path: Path, verbose: bool) -> ReconReport:
     logger.info("Starting recon workflow for %s", target.domain)
     logger.debug("Loaded configuration from %s", target.config_path)
     logger.info("Checking external tool availability")
-    validate_required_tools(REQUIRED_EXTERNAL_TOOLS)
+    validate_required_tools(_enabled_binaries(tool_settings))
 
-    logger.info("Running subdomain discovery")
-    subdomains = find_subdomains(target.domain)
+    subfinder_settings = tool_settings["subfinder"]
+    if subfinder_settings.enabled:
+        logger.info("Running subdomain discovery")
+        subdomains = find_subdomains(
+            target.domain,
+            binary=subfinder_settings.binary,
+            timeout=subfinder_settings.timeout,
+        )
+    else:
+        logger.info("Skipping subdomain discovery because subfinder is disabled")
+        subdomains = []
     _record_result(report, "subfinder", subdomains)
     subdomains_path = processed_dir / "subdomains.txt"
     _write_lines(subdomains_path, subdomains)
 
-    logger.info("Running live host detection")
-    live_urls = find_live_urls(subdomains)
+    httpx_settings = tool_settings["httpx"]
+    if httpx_settings.enabled:
+        logger.info("Running live host detection")
+        live_urls = find_live_urls(
+            subdomains,
+            binary=httpx_settings.binary,
+            timeout=httpx_settings.timeout,
+        )
+    else:
+        logger.info("Skipping live host detection because httpx is disabled")
+        live_urls = []
     _record_result(report, "httpx", live_urls)
     live_urls_path = processed_dir / "live_urls.txt"
     _write_lines(live_urls_path, live_urls)
 
-    logger.info("Running historical URL collection")
-    historical_urls = find_historical_urls(_hosts_from_urls(live_urls))
+    gau_settings = tool_settings["gau"]
+    if gau_settings.enabled:
+        logger.info("Running historical URL collection")
+        historical_targets: str | list[str] = _hosts_from_urls(live_urls) or target.domain
+        historical_urls = find_historical_urls(
+            historical_targets,
+            binary=gau_settings.binary,
+            timeout=gau_settings.timeout,
+        )
+    else:
+        logger.info("Skipping historical URL collection because gau is disabled")
+        historical_urls = []
     _record_result(report, "gau", historical_urls)
     historical_urls_path = processed_dir / "historical_urls.txt"
     _write_lines(historical_urls_path, historical_urls)
@@ -77,6 +116,29 @@ def run_workflow(domain: str, config_path: Path, verbose: bool) -> ReconReport:
     logger.info("Wrote markdown report to %s", report_path)
     logger.info("Recon workflow complete for %s", target.domain)
     return report
+
+
+def _load_tool_settings(config: Config) -> dict[str, ToolSettings]:
+    """Load external tool settings from config."""
+    return {
+        tool_name: _load_one_tool_settings(config, tool_name)
+        for tool_name in REQUIRED_EXTERNAL_TOOLS
+    }
+
+
+def _load_one_tool_settings(config: Config, tool_name: str) -> ToolSettings:
+    """Load settings for one external tool."""
+    section = get_section(config, tool_name)
+    return ToolSettings(
+        enabled=get_bool(section, "enabled", True),
+        binary=get_str(section, "binary", tool_name),
+        timeout=get_float(section, "timeout", 120.0),
+    )
+
+
+def _enabled_binaries(tool_settings: dict[str, ToolSettings]) -> list[str]:
+    """Return binaries for enabled external tools."""
+    return [settings.binary for settings in tool_settings.values() if settings.enabled]
 
 
 def _record_result(report: ReconReport, name: str, values: list[str]) -> None:

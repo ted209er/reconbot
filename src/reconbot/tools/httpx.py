@@ -8,11 +8,13 @@ from reconbot.utils.subprocess_runner import run_command
 
 LOGGER = logging.getLogger(__name__)
 DEFAULT_TIMEOUT_SECONDS = 120.0
+DEFAULT_BINARY = "httpx"
 
 
 def find_live_urls(
     subdomains: list[str],
     *,
+    binary: str = DEFAULT_BINARY,
     timeout: float = DEFAULT_TIMEOUT_SECONDS,
 ) -> list[str]:
     """Run httpx for subdomains and return sorted unique live HTTP/HTTPS URLs."""
@@ -24,7 +26,7 @@ def find_live_urls(
 
         result = run_command(
             "httpx",
-            ["httpx", "-silent", "-u", target],
+            [binary, "-silent", "-u", target],
             timeout=timeout,
         )
         if not result.success:

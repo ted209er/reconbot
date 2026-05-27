@@ -9,11 +9,13 @@ from reconbot.utils.subprocess_runner import run_command
 
 LOGGER = logging.getLogger(__name__)
 DEFAULT_TIMEOUT_SECONDS = 120.0
+DEFAULT_BINARY = "gau"
 
 
 def find_urls(
     targets: str | Sequence[str],
     *,
+    binary: str = DEFAULT_BINARY,
     timeout: float = DEFAULT_TIMEOUT_SECONDS,
 ) -> list[str]:
     """Run gau for a domain or live hosts and return sorted unique HTTP/HTTPS URLs."""
@@ -21,7 +23,7 @@ def find_urls(
     for target in _normalize_targets(targets):
         result = run_command(
             "gau",
-            ["gau", target],
+            [binary, target],
             timeout=timeout,
         )
         if not result.success:
