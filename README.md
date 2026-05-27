@@ -66,6 +66,20 @@ Tool wrappers expect their external binaries to be installed separately and
 available on `PATH`. The current wrappers expect ProjectDiscovery `subfinder`
 and `httpx`, plus `gau`.
 
+Tool settings live in `configs/default.yaml`. Each tool supports a small set of
+settings:
+
+```yaml
+tools:
+  subfinder:
+    enabled: true
+    binary: subfinder
+    timeout: 120
+```
+
+Use `enabled: false` to skip a tool, `binary` to point at a custom executable
+path or name, and `timeout` to set the per-tool subprocess timeout in seconds.
+
 Reconbot checks for required external binaries before running the workflow. If a
 tool is missing, install it from its upstream project and confirm the binary is
 available on `PATH` before rerunning:

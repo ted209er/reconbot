@@ -64,6 +64,14 @@ def get_int(config: Config, key: str, default: int) -> int:
     return value
 
 
+def get_float(config: Config, key: str, default: float) -> float:
+    """Return a float configuration value."""
+    value = get_value(config, key, default)
+    if not isinstance(value, int | float) or isinstance(value, bool):
+        raise TypeError(f"Configuration key '{key}' must be a number.")
+    return float(value)
+
+
 def get_path(config: Config, key: str, default: Path) -> Path:
     """Return a pathlib.Path configuration value."""
     value = get_value(config, key, str(default))

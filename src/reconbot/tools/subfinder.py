@@ -8,13 +8,19 @@ from reconbot.utils.subprocess_runner import run_command
 
 LOGGER = logging.getLogger(__name__)
 DEFAULT_TIMEOUT_SECONDS = 120.0
+DEFAULT_BINARY = "subfinder"
 
 
-def find_subdomains(domain: str, *, timeout: float = DEFAULT_TIMEOUT_SECONDS) -> list[str]:
+def find_subdomains(
+    domain: str,
+    *,
+    binary: str = DEFAULT_BINARY,
+    timeout: float = DEFAULT_TIMEOUT_SECONDS,
+) -> list[str]:
     """Run subfinder for a domain and return sorted unique subdomains."""
     result = run_command(
         "subfinder",
-        ["subfinder", "-silent", "-d", domain],
+        [binary, "-silent", "-d", domain],
         timeout=timeout,
     )
     if not result.success:

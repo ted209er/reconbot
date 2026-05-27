@@ -18,25 +18,39 @@ def test_run_workflow_calls_wrappers_and_writes_outputs(
         (
             f"logging:\n  file: {log_file}\n"
             f"output:\n  processed_dir: {processed_dir}\n  reports_dir: {reports_dir}\n"
+            "tools:\n"
+            "  subfinder:\n"
+            "    binary: custom-subfinder\n"
+            "    timeout: 10\n"
+            "  httpx:\n"
+            "    binary: custom-httpx\n"
+            "    timeout: 20\n"
+            "  gau:\n"
+            "    binary: custom-gau\n"
+            "    timeout: 30\n"
         ),
         encoding="utf-8",
     )
 
-    calls: list[tuple[str, object]] = []
+    calls: list[tuple[str, object, str, float]] = []
+    validation_calls: list[list[str]] = []
 
-    def fake_find_subdomains(domain: str) -> list[str]:
-        calls.append(("subfinder", domain))
+    def fake_validate_required_tools(tool_names: list[str]) -> None:
+        validation_calls.append(tool_names)
+
+    def fake_find_subdomains(domain: str, *, binary: str, timeout: float) -> list[str]:
+        calls.append(("subfinder", domain, binary, timeout))
         return ["a.example.com", "b.example.com"]
 
-    def fake_find_live_urls(subdomains: list[str]) -> list[str]:
-        calls.append(("httpx", subdomains))
+    def fake_find_live_urls(subdomains: list[str], *, binary: str, timeout: float) -> list[str]:
+        calls.append(("httpx", subdomains, binary, timeout))
         return ["https://a.example.com", "http://b.example.com"]
 
-    def fake_find_urls(targets: object) -> list[str]:
-        calls.append(("gau", targets))
+    def fake_find_urls(targets: object, *, binary: str, timeout: float) -> list[str]:
+        calls.append(("gau", targets, binary, timeout))
         return ["https://a.example.com/login", "https://b.example.com/archive"]
 
-    monkeypatch.setattr(main, "validate_required_tools", lambda tool_names: None)
+    monkeypatch.setattr(main, "validate_required_tools", fake_validate_required_tools)
     monkeypatch.setattr(main, "find_subdomains", fake_find_subdomains)
     monkeypatch.setattr(main, "find_live_urls", fake_find_live_urls)
     monkeypatch.setattr(main, "find_historical_urls", fake_find_urls)
@@ -44,10 +58,11 @@ def test_run_workflow_calls_wrappers_and_writes_outputs(
     report = main.run_workflow("example.com", config_path, verbose=False)
 
     assert calls == [
-        ("subfinder", "example.com"),
-        ("httpx", ["a.example.com", "b.example.com"]),
-        ("gau", ["a.example.com", "b.example.com"]),
+        ("subfinder", "example.com", "custom-subfinder", 10.0),
+        ("httpx", ["a.example.com", "b.example.com"], "custom-httpx", 20.0),
+        ("gau", ["a.example.com", "b.example.com"], "custom-gau", 30.0),
     ]
+    assert validation_calls == [["custom-subfinder", "custom-httpx", "custom-gau"]]
     assert report.target.domain == "example.com"
     assert [result.name for result in report.results] == ["subfinder", "httpx", "gau"]
     assert (processed_dir / "subdomains.txt").read_text(encoding="utf-8") == (
@@ -66,15 +81,54 @@ def test_run_workflow_calls_wrappers_and_writes_outputs(
     assert "- URL count: 2" in report_text
 
 
+def test_run_workflow_skips_disabled_tools(tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
+    config_path = tmp_path / "config.yaml"
+    processed_dir = tmp_path / "processed"
+    config_path.write_text(
+        (
+            f"logging:\n  file: {tmp_path / 'reconbot.log'}\n"
+            f"output:\n  processed_dir: {processed_dir}\n  reports_dir: {tmp_path / 'reports'}\n"
+            "tools:\n"
+            "  subfinder:\n"
+            "    enabled: false\n"
+            "  httpx:\n"
+            "    enabled: false\n"
+            "  gau:\n"
+            "    enabled: false\n"
+        ),
+        encoding="utf-8",
+    )
+    validation_calls: list[list[str]] = []
+
+    def fake_validate_required_tools(tool_names: list[str]) -> None:
+        validation_calls.append(tool_names)
+
+    def fail_if_called(*args: object, **kwargs: object) -> list[str]:
+        raise AssertionError("disabled tool wrapper should not run")
+
+    monkeypatch.setattr(main, "validate_required_tools", fake_validate_required_tools)
+    monkeypatch.setattr(main, "find_subdomains", fail_if_called)
+    monkeypatch.setattr(main, "find_live_urls", fail_if_called)
+    monkeypatch.setattr(main, "find_historical_urls", fail_if_called)
+
+    report = main.run_workflow("example.com", config_path, verbose=False)
+
+    assert validation_calls == [[]]
+    assert [result.output for result in report.results] == ["", "", ""]
+    assert (processed_dir / "subdomains.txt").read_text(encoding="utf-8") == ""
+    assert (processed_dir / "live_urls.txt").read_text(encoding="utf-8") == ""
+    assert (processed_dir / "historical_urls.txt").read_text(encoding="utf-8") == ""
+
+
 def test_run_workflow_validates_required_tools(tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
     config_path = tmp_path / "config.yaml"
     config_path.write_text(
         f"logging:\n  file: {tmp_path / 'reconbot.log'}\n",
         encoding="utf-8",
     )
-    calls: list[tuple[str, ...]] = []
+    calls: list[list[str]] = []
 
-    def fake_validate_required_tools(tool_names: tuple[str, ...]) -> None:
+    def fake_validate_required_tools(tool_names: list[str]) -> None:
         calls.append(tool_names)
         raise RuntimeError("missing tools")
 
@@ -83,7 +137,7 @@ def test_run_workflow_validates_required_tools(tmp_path: Path, monkeypatch: Monk
     with pytest.raises(RuntimeError, match="missing tools"):
         main.run_workflow("example.com", config_path, verbose=False)
 
-    assert calls == [main.REQUIRED_EXTERNAL_TOOLS]
+    assert calls == [["subfinder", "httpx", "gau"]]
 
 
 def test_hosts_from_urls_deduplicates_and_sorts() -> None:

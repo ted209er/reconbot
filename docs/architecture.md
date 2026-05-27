@@ -58,5 +58,10 @@ inputs, call `run_command()` with argument lists, and parse newline-based stdout
 into sorted unique results. They expect the external binaries to be installed on
 `PATH` and are not wired into orchestration yet.
 
+Tool runtime settings are loaded from the small `tools:` section in YAML config.
+Each wrapper can receive an enabled flag, binary name/path, and timeout from the
+main workflow. Disabled tools are skipped by orchestration, and detection only
+checks enabled binaries.
+
 Higher-level modules under `src/reconbot/modules/` should compose wrappers into
 workflow steps. They should not duplicate subprocess execution behavior.
