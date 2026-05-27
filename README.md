@@ -25,8 +25,11 @@ modules must preserve this boundary.
 - `src/reconbot/main.py` contains the placeholder orchestration flow.
 - `src/reconbot/utils/subprocess_runner.py` wraps `subprocess.run` safely,
   captures output, supports timeouts, and returns `ToolResult` objects.
-- `src/reconbot/tools/` and `src/reconbot/modules/` are reserved for future tool
-  wrappers and orchestration modules.
+- `src/reconbot/tools/` contains lightweight tool wrappers such as the subfinder
+  wrapper. Wrappers build safe argument lists, call shared helpers, and keep
+  parsing local to the tool.
+- `src/reconbot/modules/` is reserved for orchestration modules that compose tool
+  wrappers into workflow phases.
 - `configs/default.yaml` contains the default application configuration.
 - `docs/` contains architecture and security notes.
 
