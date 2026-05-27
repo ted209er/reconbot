@@ -34,7 +34,7 @@ dataclasses such as `ReconTarget`, `ToolResult`, and `ReconReport`.
 
 ## Subprocess Runner
 
-`src/reconbot/utils/subprocess_runner.py` is the only foundation helper for local
+`src/reconbot/utils/subprocess_runner.py` is the foundation helper for local
 process execution. Its responsibilities are:
 
 - call `subprocess.run` with `shell=False`;
@@ -52,6 +52,10 @@ Future wrappers should live under `src/reconbot/tools/` and expose small
 functions or classes that accept typed inputs and return `ToolResult` or another
 explicit model. A wrapper should build an argument list, call the subprocess
 runner when invoking a local binary, and keep parsing logic scoped to that tool.
+
+The subfinder wrapper follows this pattern: it accepts a domain, calls
+`run_command()` with a list of arguments, and parses stdout into a sorted unique
+list of subdomains. It is not wired into orchestration yet.
 
 Higher-level modules under `src/reconbot/modules/` should compose wrappers into
 workflow steps. They should not duplicate subprocess execution behavior.
