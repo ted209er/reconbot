@@ -26,8 +26,8 @@ modules must preserve this boundary.
 - `src/reconbot/utils/subprocess_runner.py` wraps `subprocess.run` safely,
   captures output, supports timeouts, and returns `ToolResult` objects.
 - `src/reconbot/tools/` contains lightweight tool wrappers such as the subfinder
-  wrapper. Wrappers build safe argument lists, call shared helpers, and keep
-  parsing local to the tool.
+  and httpx wrappers. Wrappers build safe argument lists, call shared helpers,
+  and keep parsing local to the tool.
 - `src/reconbot/modules/` is reserved for orchestration modules that compose tool
   wrappers into workflow phases.
 - `configs/default.yaml` contains the default application configuration.
@@ -59,6 +59,10 @@ reconbot --domain example.com --config configs/default.yaml --verbose
 ```
 
 The current workflow logs placeholder steps only. It does not run recon tools.
+
+Tool wrappers expect their external binaries to be installed separately and
+available on `PATH`. The current wrappers expect ProjectDiscovery `subfinder`
+and `httpx`.
 
 ## Validation
 

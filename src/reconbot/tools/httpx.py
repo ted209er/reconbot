@@ -1,0 +1,47 @@
+"""Lightweight wrapper for the httpx CLI."""
+
+from __future__ import annotations
+
+import logging
+
+from reconbot.utils.subprocess_runner import run_command
+
+LOGGER = logging.getLogger(__name__)
+DEFAULT_TIMEOUT_SECONDS = 120.0
+
+
+def find_live_urls(
+    subdomains: list[str],
+    *,
+    timeout: float = DEFAULT_TIMEOUT_SECONDS,
+) -> list[str]:
+    """Run httpx for subdomains and return sorted unique live HTTP/HTTPS URLs."""
+    live_urls: set[str] = set()
+    for subdomain in subdomains:
+        target = subdomain.strip()
+        if not target:
+            continue
+
+        result = run_command(
+            "httpx",
+            ["httpx", "-silent", "-u", target],
+            timeout=timeout,
+        )
+        if not result.success:
+            LOGGER.warning("httpx failed for %s with code %s", target, result.return_code)
+            continue
+
+        live_urls.update(parse_live_urls(result.output))
+
+    return sorted(live_urls)
+
+
+def parse_live_urls(output: str) -> list[str]:
+    """Parse httpx stdout into HTTP/HTTPS URLs."""
+    urls = {
+        candidate
+        for line in output.splitlines()
+        if (candidate := line.strip().lower().rstrip("/"))
+        and (candidate.startswith("http://") or candidate.startswith("https://"))
+    }
+    return sorted(urls)

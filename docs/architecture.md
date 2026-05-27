@@ -53,9 +53,10 @@ functions or classes that accept typed inputs and return `ToolResult` or another
 explicit model. A wrapper should build an argument list, call the subprocess
 runner when invoking a local binary, and keep parsing logic scoped to that tool.
 
-The subfinder wrapper follows this pattern: it accepts a domain, calls
-`run_command()` with a list of arguments, and parses stdout into a sorted unique
-list of subdomains. It is not wired into orchestration yet.
+The subfinder and httpx wrappers follow this pattern: they accept typed inputs,
+call `run_command()` with argument lists, and parse newline-based stdout into
+sorted unique results. They expect the external binaries to be installed on
+`PATH` and are not wired into orchestration yet.
 
 Higher-level modules under `src/reconbot/modules/` should compose wrappers into
 workflow steps. They should not duplicate subprocess execution behavior.
