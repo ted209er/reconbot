@@ -53,9 +53,9 @@ functions or classes that accept typed inputs and return `ToolResult` or another
 explicit model. A wrapper should build an argument list, call the subprocess
 runner when invoking a local binary, and keep parsing logic scoped to that tool.
 
-The subfinder and httpx wrappers follow this pattern: they accept typed inputs,
-call `run_command()` with argument lists, and parse newline-based stdout into
-sorted unique results. They expect the external binaries to be installed on
+The subfinder, httpx, and gau wrappers follow this pattern: they accept typed
+inputs, call `run_command()` with argument lists, and parse newline-based stdout
+into sorted unique results. They expect the external binaries to be installed on
 `PATH` and are not wired into orchestration yet.
 
 Higher-level modules under `src/reconbot/modules/` should compose wrappers into
