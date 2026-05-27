@@ -66,6 +66,16 @@ Tool wrappers expect their external binaries to be installed separately and
 available on `PATH`. The current wrappers expect ProjectDiscovery `subfinder`
 and `httpx`, plus `gau`.
 
+Reconbot checks for required external binaries before running the workflow. If a
+tool is missing, install it from its upstream project and confirm the binary is
+available on `PATH` before rerunning:
+
+```bash
+subfinder -version
+httpx -version
+gau --version
+```
+
 ## Validation
 
 Run these before opening a PR:
