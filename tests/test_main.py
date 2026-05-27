@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import pytest
 from pytest import MonkeyPatch
 
 from reconbot import main
@@ -35,6 +36,7 @@ def test_run_workflow_calls_wrappers_and_writes_outputs(
         calls.append(("gau", targets))
         return ["https://a.example.com/login", "https://b.example.com/archive"]
 
+    monkeypatch.setattr(main, "validate_required_tools", lambda tool_names: None)
     monkeypatch.setattr(main, "find_subdomains", fake_find_subdomains)
     monkeypatch.setattr(main, "find_live_urls", fake_find_live_urls)
     monkeypatch.setattr(main, "find_historical_urls", fake_find_urls)
@@ -62,6 +64,26 @@ def test_run_workflow_calls_wrappers_and_writes_outputs(
     assert "- Subdomain count: 2" in report_text
     assert "- Live host count: 2" in report_text
     assert "- URL count: 2" in report_text
+
+
+def test_run_workflow_validates_required_tools(tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        f"logging:\n  file: {tmp_path / 'reconbot.log'}\n",
+        encoding="utf-8",
+    )
+    calls: list[tuple[str, ...]] = []
+
+    def fake_validate_required_tools(tool_names: tuple[str, ...]) -> None:
+        calls.append(tool_names)
+        raise RuntimeError("missing tools")
+
+    monkeypatch.setattr(main, "validate_required_tools", fake_validate_required_tools)
+
+    with pytest.raises(RuntimeError, match="missing tools"):
+        main.run_workflow("example.com", config_path, verbose=False)
+
+    assert calls == [main.REQUIRED_EXTERNAL_TOOLS]
 
 
 def test_hosts_from_urls_deduplicates_and_sorts() -> None:

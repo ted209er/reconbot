@@ -12,9 +12,12 @@ from reconbot.config import get_path, get_section, load_config
 from reconbot.logging_config import setup_logging
 from reconbot.models import ReconReport, ReconTarget, ToolResult
 from reconbot.reporting import write_markdown_report
+from reconbot.tools.detection import validate_required_tools
 from reconbot.tools.gau import find_urls as find_historical_urls
 from reconbot.tools.httpx import find_live_urls
 from reconbot.tools.subfinder import find_subdomains
+
+REQUIRED_EXTERNAL_TOOLS = ("subfinder", "httpx", "gau")
 
 
 def run_workflow(domain: str, config_path: Path, verbose: bool) -> ReconReport:
@@ -32,6 +35,8 @@ def run_workflow(domain: str, config_path: Path, verbose: bool) -> ReconReport:
 
     logger.info("Starting recon workflow for %s", target.domain)
     logger.debug("Loaded configuration from %s", target.config_path)
+    logger.info("Checking external tool availability")
+    validate_required_tools(REQUIRED_EXTERNAL_TOOLS)
 
     logger.info("Running subdomain discovery")
     subdomains = find_subdomains(target.domain)
