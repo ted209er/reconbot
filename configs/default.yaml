@@ -1,2 +1,4 @@
 logging:
   file: logs/reconbot.log
+output:
+  processed_dir: data/processed

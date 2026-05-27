@@ -58,7 +58,9 @@ python -m pip install -e ".[dev]"
 reconbot --domain example.com --config configs/default.yaml --verbose
 ```
 
-The current workflow logs placeholder steps only. It does not run recon tools.
+The workflow runs subdomain discovery, live host detection, and historical URL
+collection for the authorized domain. Processed outputs are written to
+`data/processed/`.
 
 Tool wrappers expect their external binaries to be installed separately and
 available on `PATH`. The current wrappers expect ProjectDiscovery `subfinder`
