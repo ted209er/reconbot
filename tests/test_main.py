@@ -11,9 +11,13 @@ def test_run_workflow_calls_wrappers_and_writes_outputs(
 ) -> None:
     config_path = tmp_path / "config.yaml"
     processed_dir = tmp_path / "processed"
+    reports_dir = tmp_path / "reports"
     log_file = tmp_path / "logs" / "reconbot.log"
     config_path.write_text(
-        f"logging:\n  file: {log_file}\noutput:\n  processed_dir: {processed_dir}\n",
+        (
+            f"logging:\n  file: {log_file}\n"
+            f"output:\n  processed_dir: {processed_dir}\n  reports_dir: {reports_dir}\n"
+        ),
         encoding="utf-8",
     )
 
@@ -53,6 +57,11 @@ def test_run_workflow_calls_wrappers_and_writes_outputs(
     assert (processed_dir / "historical_urls.txt").read_text(encoding="utf-8") == (
         "https://a.example.com/login\nhttps://b.example.com/archive\n"
     )
+    report_text = (reports_dir / "example.com.md").read_text(encoding="utf-8")
+    assert "- Target domain: `example.com`" in report_text
+    assert "- Subdomain count: 2" in report_text
+    assert "- Live host count: 2" in report_text
+    assert "- URL count: 2" in report_text
 
 
 def test_hosts_from_urls_deduplicates_and_sorts() -> None:

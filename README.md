@@ -60,7 +60,7 @@ reconbot --domain example.com --config configs/default.yaml --verbose
 
 The workflow runs subdomain discovery, live host detection, and historical URL
 collection for the authorized domain. Processed outputs are written to
-`data/processed/`.
+`data/processed/`, and a plain markdown report is written to `reports/`.
 
 Tool wrappers expect their external binaries to be installed separately and
 available on `PATH`. The current wrappers expect ProjectDiscovery `subfinder`
