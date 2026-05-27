@@ -11,6 +11,7 @@ from reconbot.cli import parse_args
 from reconbot.config import get_path, get_section, load_config
 from reconbot.logging_config import setup_logging
 from reconbot.models import ReconReport, ReconTarget, ToolResult
+from reconbot.reporting import write_markdown_report
 from reconbot.tools.gau import find_urls as find_historical_urls
 from reconbot.tools.httpx import find_live_urls
 from reconbot.tools.subfinder import find_subdomains
@@ -23,6 +24,7 @@ def run_workflow(domain: str, config_path: Path, verbose: bool) -> ReconReport:
     output_section = get_section(config, "output")
     log_file = get_path(logging_section, "file", Path("logs/reconbot.log"))
     processed_dir = get_path(output_section, "processed_dir", Path("data/processed"))
+    reports_dir = get_path(output_section, "reports_dir", Path("reports"))
     logger = setup_logging(verbose=verbose, log_file=log_file)
 
     target = ReconTarget(domain=domain, config_path=config_path)
@@ -34,17 +36,20 @@ def run_workflow(domain: str, config_path: Path, verbose: bool) -> ReconReport:
     logger.info("Running subdomain discovery")
     subdomains = find_subdomains(target.domain)
     _record_result(report, "subfinder", subdomains)
-    _write_lines(processed_dir / "subdomains.txt", subdomains)
+    subdomains_path = processed_dir / "subdomains.txt"
+    _write_lines(subdomains_path, subdomains)
 
     logger.info("Running live host detection")
     live_urls = find_live_urls(subdomains)
     _record_result(report, "httpx", live_urls)
-    _write_lines(processed_dir / "live_urls.txt", live_urls)
+    live_urls_path = processed_dir / "live_urls.txt"
+    _write_lines(live_urls_path, live_urls)
 
     logger.info("Running historical URL collection")
     historical_urls = find_historical_urls(_hosts_from_urls(live_urls))
     _record_result(report, "gau", historical_urls)
-    _write_lines(processed_dir / "historical_urls.txt", historical_urls)
+    historical_urls_path = processed_dir / "historical_urls.txt"
+    _write_lines(historical_urls_path, historical_urls)
 
     logger.info(
         "Recon summary for %s: %s subdomains, %s live URLs, %s historical URLs",
@@ -54,6 +59,17 @@ def run_workflow(domain: str, config_path: Path, verbose: bool) -> ReconReport:
         len(historical_urls),
     )
     report.complete()
+    report_path = reports_dir / f"{target.domain}.md"
+    write_markdown_report(
+        report,
+        {
+            "subdomains": subdomains_path,
+            "live_hosts": live_urls_path,
+            "historical_urls": historical_urls_path,
+        },
+        report_path,
+    )
+    logger.info("Wrote markdown report to %s", report_path)
     logger.info("Recon workflow complete for %s", target.domain)
     return report
 
