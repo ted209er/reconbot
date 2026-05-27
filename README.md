@@ -68,6 +68,20 @@ mypy src tests
 git diff --check
 ```
 
+## Pre-Commit
+
+Install the Git hooks after setting up the virtual environment:
+
+```bash
+pre-commit install
+```
+
+Run the hooks manually:
+
+```bash
+pre-commit run --all-files
+```
+
 ## MVP Roadmap
 
 1. Keep the application foundation stable: CLI, config loading, logging, models,
