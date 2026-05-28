@@ -101,6 +101,11 @@ mypy src tests
 git diff --check
 ```
 
+## CI
+
+Pushes and pull requests automatically run the same lightweight validation in
+GitHub Actions: Ruff, mypy, and pytest on Python 3.11.
+
 ## Pre-Commit
 
 Install the Git hooks after setting up the virtual environment:
