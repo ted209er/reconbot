@@ -101,6 +101,16 @@ mypy src tests
 git diff --check
 ```
 
+The same commands are available through `make`:
+
+```bash
+make lint
+make typecheck
+make test
+make validate
+make format
+```
+
 ## CI
 
 Pushes and pull requests automatically run the same lightweight validation in
