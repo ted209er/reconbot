@@ -52,6 +52,27 @@ source .venv/bin/activate
 python -m pip install -e ".[dev]"
 ```
 
+## Quick Start
+
+Set up Python, install Reconbot, validate the repo, and run a small authorized
+recon workflow:
+
+```bash
+python3.11 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -e ".[dev]"
+
+make validate
+
+reconbot --domain example.com --config configs/default.yaml
+```
+
+Reconbot uses external binaries for tool wrappers. Install `subfinder`, `httpx`,
+and `gau` before running enabled tools. See
+[Tool Installation](docs/tool-installation.md) for Ubuntu, WSL Ubuntu, and macOS
+commands.
+
 ## Running
 
 ```bash
