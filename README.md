@@ -108,6 +108,21 @@ git diff --check
 The same commands are available through `make`:
 
 ```bash
+python3.11 -m venv .venv
+source .venv/bin/activate
+python -m pip install -e ".[dev]"
+
+make validate
+make test
+make lint
+```
+
+Makefile targets use tools from the local virtual environment directly, such as
+`.venv/bin/ruff`, so you do not need to modify `PATH` before running them.
+
+Additional targets:
+
+```bash
 make lint
 make typecheck
 make test
