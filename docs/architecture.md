@@ -13,6 +13,7 @@ Reconbot uses a small `src` layout so application code is importable as the
 - `src/reconbot/models.py` owns shared dataclasses used across orchestration,
   wrappers, and reporting.
 - `src/reconbot/main.py` owns top-level orchestration for the CLI entry point.
+- `src/reconbot/history.py` owns the lightweight SQLite run history.
 - `src/reconbot/utils/` contains shared helpers that are not recon tools.
 - `src/reconbot/tools/` is reserved for future wrappers around external tools or
   APIs.
@@ -31,6 +32,15 @@ Logging setup should be centralized so modules only need `logging.getLogger`.
 
 Models should stay simple and serializable. Shared state should move through
 dataclasses such as `ReconTarget`, `ToolResult`, and `ReconReport`.
+
+## History Layer
+
+`src/reconbot/history.py` stores completed run summaries in SQLite using only the
+standard library `sqlite3` module. The database lives at `data/reconbot.db`.
+
+The history layer is intentionally small. It creates the `runs` table when
+needed, records completed runs, and lists recent runs. It does not implement
+migrations, diffing, dashboards, or analytics.
 
 ## Subprocess Runner
 
