@@ -1,7 +1,17 @@
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from reconbot.history import initialize_database, list_recent_runs, record_run
+from reconbot.history import (
+    calculate_added_items,
+    calculate_removed_items,
+    get_previous_live_urls,
+    get_previous_subdomains,
+    initialize_database,
+    list_recent_runs,
+    record_live_urls,
+    record_run,
+    record_subdomains,
+)
 
 
 def test_initialize_database_creates_schema(tmp_path: Path) -> None:
@@ -58,3 +68,52 @@ def test_list_recent_runs_returns_newest_first_and_respects_limit(tmp_path: Path
     runs = list_recent_runs(limit=2, database_path=database_path)
 
     assert [run.target for run in runs] == ["example2.com", "example1.com"]
+
+
+def test_records_and_reads_previous_items_for_latest_target_run(tmp_path: Path) -> None:
+    database_path = tmp_path / "reconbot.db"
+    started_at = datetime(2026, 5, 29, 12, 0, tzinfo=UTC)
+
+    first_run_id = record_run(
+        target="example.com",
+        started_at=started_at,
+        completed_at=started_at + timedelta(seconds=5),
+        subdomain_count=2,
+        live_url_count=1,
+        url_count=0,
+        database_path=database_path,
+    )
+    record_subdomains(
+        run_id=first_run_id,
+        subdomains=["b.example.com", "a.example.com", "a.example.com"],
+        database_path=database_path,
+    )
+    record_live_urls(
+        run_id=first_run_id,
+        urls=["https://b.example.com", "https://a.example.com", "https://a.example.com"],
+        database_path=database_path,
+    )
+
+    assert get_previous_subdomains(target="example.com", database_path=database_path) == [
+        "a.example.com",
+        "b.example.com",
+    ]
+    assert get_previous_live_urls(target="example.com", database_path=database_path) == [
+        "https://a.example.com",
+        "https://b.example.com",
+    ]
+
+
+def test_previous_items_are_empty_without_matching_target(tmp_path: Path) -> None:
+    database_path = tmp_path / "reconbot.db"
+
+    assert get_previous_subdomains(target="example.com", database_path=database_path) == []
+    assert get_previous_live_urls(target="example.com", database_path=database_path) == []
+
+
+def test_calculate_added_and_removed_items_are_sorted_and_deduplicated() -> None:
+    current = ["beta.example.com", "api.example.com", "api.example.com"]
+    previous = ["old.example.com", "api.example.com"]
+
+    assert calculate_added_items(current, previous) == ["beta.example.com"]
+    assert calculate_removed_items(current, previous) == ["old.example.com"]

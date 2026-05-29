@@ -11,7 +11,17 @@ from urllib.parse import urlparse
 
 from reconbot.cli import parse_args
 from reconbot.config import Config, get_bool, get_float, get_path, get_section, get_str, load_config
-from reconbot.history import DEFAULT_DATABASE_PATH, initialize_database, record_run
+from reconbot.history import (
+    DEFAULT_DATABASE_PATH,
+    calculate_added_items,
+    calculate_removed_items,
+    get_previous_live_urls,
+    get_previous_subdomains,
+    initialize_database,
+    record_live_urls,
+    record_run,
+    record_subdomains,
+)
 from reconbot.logging_config import setup_logging
 from reconbot.models import ReconReport, ReconTarget, ToolResult
 from reconbot.reporting import write_markdown_report
@@ -112,10 +122,24 @@ def run_workflow(domain: str, config_path: Path, verbose: bool) -> ReconReport:
         len(live_urls),
         len(historical_urls),
     )
+    previous_subdomains = get_previous_subdomains(
+        target=target.domain,
+        database_path=HISTORY_DATABASE_PATH,
+    )
+    previous_live_urls = get_previous_live_urls(
+        target=target.domain,
+        database_path=HISTORY_DATABASE_PATH,
+    )
+    diff_items = {
+        "added_subdomains": calculate_added_items(subdomains, previous_subdomains),
+        "removed_subdomains": calculate_removed_items(subdomains, previous_subdomains),
+        "added_live_urls": calculate_added_items(live_urls, previous_live_urls),
+        "removed_live_urls": calculate_removed_items(live_urls, previous_live_urls),
+    }
     report.complete()
     if report.finished_at is None:
         raise RuntimeError("report completion timestamp was not set")
-    record_run(
+    run_id = record_run(
         target=target.domain,
         started_at=report.started_at,
         completed_at=report.finished_at,
@@ -124,6 +148,8 @@ def run_workflow(domain: str, config_path: Path, verbose: bool) -> ReconReport:
         url_count=len(historical_urls),
         database_path=HISTORY_DATABASE_PATH,
     )
+    record_subdomains(run_id=run_id, subdomains=subdomains, database_path=HISTORY_DATABASE_PATH)
+    record_live_urls(run_id=run_id, urls=live_urls, database_path=HISTORY_DATABASE_PATH)
     report_path = reports_dir / f"{target.domain}.md"
     write_markdown_report(
         report,
@@ -133,6 +159,7 @@ def run_workflow(domain: str, config_path: Path, verbose: bool) -> ReconReport:
             "historical_urls": historical_urls_path,
         },
         report_path,
+        diff_items,
     )
     logger.info("Wrote markdown report to %s", report_path)
     logger.info("Recon workflow complete for %s", target.domain)

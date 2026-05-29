@@ -1,10 +1,11 @@
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
 from pytest import MonkeyPatch
 
 from reconbot import main
-from reconbot.history import list_recent_runs
+from reconbot.history import list_recent_runs, record_live_urls, record_run, record_subdomains
 from reconbot.tools.detection import MissingExternalToolsError
 
 
@@ -167,6 +168,72 @@ def test_run_workflow_skips_disabled_tools(tmp_path: Path, monkeypatch: MonkeyPa
     assert (processed_dir / "subdomains.txt").read_text(encoding="utf-8") == ""
     assert (processed_dir / "live_urls.txt").read_text(encoding="utf-8") == ""
     assert (processed_dir / "historical_urls.txt").read_text(encoding="utf-8") == ""
+
+
+def test_run_workflow_reports_diff_from_previous_run(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    config_path = tmp_path / "config.yaml"
+    reports_dir = tmp_path / "reports"
+    config_path.write_text(
+        (
+            f"logging:\n  file: {tmp_path / 'reconbot.log'}\n"
+            f"output:\n  processed_dir: {tmp_path / 'processed'}\n  reports_dir: {reports_dir}\n"
+            "tools:\n"
+            "  subfinder:\n"
+            "    enabled: true\n"
+            "  httpx:\n"
+            "    enabled: true\n"
+            "  gau:\n"
+            "    enabled: false\n"
+        ),
+        encoding="utf-8",
+    )
+    started_at = datetime(2026, 5, 29, 12, 0, tzinfo=UTC)
+    previous_run_id = record_run(
+        target="example.com",
+        started_at=started_at,
+        completed_at=started_at + timedelta(seconds=5),
+        subdomain_count=2,
+        live_url_count=1,
+        url_count=0,
+        database_path=main.HISTORY_DATABASE_PATH,
+    )
+    record_subdomains(
+        run_id=previous_run_id,
+        subdomains=["api.example.com", "old.example.com"],
+        database_path=main.HISTORY_DATABASE_PATH,
+    )
+    record_live_urls(
+        run_id=previous_run_id,
+        urls=["https://old.example.com"],
+        database_path=main.HISTORY_DATABASE_PATH,
+    )
+
+    monkeypatch.setattr(main, "validate_required_tools", lambda tool_names: None)
+    monkeypatch.setattr(
+        main,
+        "find_subdomains",
+        lambda domain, *, binary, timeout: ["api.example.com", "beta.example.com"],
+    )
+    monkeypatch.setattr(
+        main,
+        "find_live_urls",
+        lambda subdomains, *, binary, timeout: ["https://beta.example.com"],
+    )
+
+    main.run_workflow("example.com", config_path, verbose=False)
+
+    report_text = (reports_dir / "example.com.md").read_text(encoding="utf-8")
+    assert "- Added subdomains: 1" in report_text
+    assert "- Removed subdomains: 1" in report_text
+    assert "- Added live URLs: 1" in report_text
+    assert "- Removed live URLs: 1" in report_text
+    assert "+ beta.example.com" in report_text
+    assert "- old.example.com" in report_text
+    assert "+ https://beta.example.com" in report_text
+    assert "- https://old.example.com" in report_text
 
 
 def test_run_workflow_validates_required_tools(tmp_path: Path, monkeypatch: MonkeyPatch) -> None:

@@ -35,12 +35,18 @@ dataclasses such as `ReconTarget`, `ToolResult`, and `ReconReport`.
 
 ## History Layer
 
-`src/reconbot/history.py` stores completed run summaries in SQLite using only the
-standard library `sqlite3` module. The database lives at `data/reconbot.db`.
+`src/reconbot/history.py` stores completed run summaries and selected per-run
+findings in SQLite using only the standard library `sqlite3` module. The
+database lives at `data/reconbot.db`.
 
 The history layer is intentionally small. It creates the `runs` table when
-needed, records completed runs, and lists recent runs. It does not implement
-migrations, diffing, dashboards, or analytics.
+needed, records completed runs, stores subdomains and live URLs, and lists
+recent runs.
+
+The workflow compares current subdomains and live URLs with the latest previous
+run for the same target before recording the current run. Reports show simple
+added and removed item counts plus the changed values. The project does not
+implement migrations, dashboards, analytics, notifications, or background jobs.
 
 ## Subprocess Runner
 
