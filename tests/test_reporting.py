@@ -54,3 +54,34 @@ def test_write_markdown_report_writes_file(tmp_path: Path) -> None:
 
     assert written_path == report_path
     assert report_path.read_text(encoding="utf-8").startswith("# Reconbot Report")
+
+
+def test_build_markdown_report_includes_diff_summary() -> None:
+    report = ReconReport(
+        target=ReconTarget(domain="example.com", config_path=Path("config.yaml"))
+    )
+
+    markdown = build_markdown_report(
+        report,
+        {
+            "subdomains": Path("subdomains.txt"),
+            "live_hosts": Path("live_urls.txt"),
+            "historical_urls": Path("historical_urls.txt"),
+        },
+        {
+            "added_subdomains": ["api-v2.example.com", "beta.example.com"],
+            "removed_subdomains": ["old-admin.example.com"],
+            "added_live_urls": ["https://api-v2.example.com"],
+            "removed_live_urls": [],
+        },
+    )
+
+    assert "## Changes Since Previous Run" in markdown
+    assert "- Added subdomains: 2" in markdown
+    assert "- Removed subdomains: 1" in markdown
+    assert "- Added live URLs: 1" in markdown
+    assert "- Removed live URLs: 0" in markdown
+    assert "+ api-v2.example.com" in markdown
+    assert "+ beta.example.com" in markdown
+    assert "- old-admin.example.com" in markdown
+    assert "+ https://api-v2.example.com" in markdown

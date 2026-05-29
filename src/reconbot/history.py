@@ -40,6 +40,24 @@ def initialize_database(database_path: Path = DEFAULT_DATABASE_PATH) -> Path:
             )
             """
         )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS subdomains (
+                run_id INTEGER NOT NULL,
+                subdomain TEXT NOT NULL,
+                FOREIGN KEY (run_id) REFERENCES runs (id)
+            )
+            """
+        )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS live_urls (
+                run_id INTEGER NOT NULL,
+                url TEXT NOT NULL,
+                FOREIGN KEY (run_id) REFERENCES runs (id)
+            )
+            """
+        )
     return database_path
 
 
@@ -119,3 +137,127 @@ def list_recent_runs(
         )
         for row in rows
     ]
+
+
+def record_subdomains(
+    *,
+    run_id: int,
+    subdomains: list[str],
+    database_path: Path = DEFAULT_DATABASE_PATH,
+) -> None:
+    """Record discovered subdomains for one run."""
+    _record_items(
+        table="subdomains",
+        column="subdomain",
+        run_id=run_id,
+        values=subdomains,
+        database_path=database_path,
+    )
+
+
+def record_live_urls(
+    *,
+    run_id: int,
+    urls: list[str],
+    database_path: Path = DEFAULT_DATABASE_PATH,
+) -> None:
+    """Record discovered live URLs for one run."""
+    _record_items(
+        table="live_urls",
+        column="url",
+        run_id=run_id,
+        values=urls,
+        database_path=database_path,
+    )
+
+
+def get_previous_subdomains(
+    *,
+    target: str,
+    database_path: Path = DEFAULT_DATABASE_PATH,
+) -> list[str]:
+    """Return subdomains from the most recent previous run for a target."""
+    return _get_previous_items(
+        target=target,
+        table="subdomains",
+        column="subdomain",
+        database_path=database_path,
+    )
+
+
+def get_previous_live_urls(
+    *,
+    target: str,
+    database_path: Path = DEFAULT_DATABASE_PATH,
+) -> list[str]:
+    """Return live URLs from the most recent previous run for a target."""
+    return _get_previous_items(
+        target=target,
+        table="live_urls",
+        column="url",
+        database_path=database_path,
+    )
+
+
+def calculate_added_items(current: list[str], previous: list[str]) -> list[str]:
+    """Return items present now but not in the previous run."""
+    return sorted(set(current) - set(previous))
+
+
+def calculate_removed_items(current: list[str], previous: list[str]) -> list[str]:
+    """Return items present in the previous run but missing now."""
+    return sorted(set(previous) - set(current))
+
+
+def _record_items(
+    *,
+    table: str,
+    column: str,
+    run_id: int,
+    values: list[str],
+    database_path: Path,
+) -> None:
+    """Record sorted unique values for a run."""
+    initialize_database(database_path)
+    rows = [(run_id, value) for value in sorted(set(values))]
+    if not rows:
+        return
+    with sqlite3.connect(database_path) as connection:
+        connection.executemany(
+            f"INSERT INTO {table} (run_id, {column}) VALUES (?, ?)",
+            rows,
+        )
+
+
+def _get_previous_items(
+    *,
+    target: str,
+    table: str,
+    column: str,
+    database_path: Path,
+) -> list[str]:
+    """Return sorted items for the latest run matching a target."""
+    initialize_database(database_path)
+    with sqlite3.connect(database_path) as connection:
+        run_row = connection.execute(
+            """
+            SELECT id
+            FROM runs
+            WHERE target = ?
+            ORDER BY id DESC
+            LIMIT 1
+            """,
+            (target,),
+        ).fetchone()
+        if run_row is None:
+            return []
+        rows = connection.execute(
+            f"""
+            SELECT {column}
+            FROM {table}
+            WHERE run_id = ?
+            ORDER BY {column}
+            """,
+            (int(run_row[0]),),
+        ).fetchall()
+    return [str(row[0]) for row in rows]

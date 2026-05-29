@@ -89,6 +89,8 @@ collection for the authorized domain. Processed outputs are written to
 Completed run summaries are also stored in a local SQLite database at
 `data/reconbot.db` so future features can compare runs without parsing report
 files.
+Reports include a small comparison against the most recent previous run for the
+same target, including added and removed subdomains and live URLs.
 
 Tool wrappers expect their external binaries to be installed separately and
 available on `PATH`. The current wrappers expect ProjectDiscovery `subfinder`
