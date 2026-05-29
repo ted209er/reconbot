@@ -4,6 +4,7 @@ import pytest
 from pytest import MonkeyPatch
 
 from reconbot import main
+from reconbot.tools.detection import MissingExternalToolsError
 
 
 def test_run_workflow_calls_wrappers_and_writes_outputs(
@@ -81,6 +82,42 @@ def test_run_workflow_calls_wrappers_and_writes_outputs(
     assert "- URL count: 2" in report_text
 
 
+def test_run_workflow_prints_startup_progress_and_summary(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    config_path = tmp_path / "config.yaml"
+    processed_dir = tmp_path / "processed"
+    reports_dir = tmp_path / "reports"
+    config_path.write_text(
+        (
+            f"logging:\n  file: {tmp_path / 'reconbot.log'}\n"
+            f"output:\n  processed_dir: {processed_dir}\n  reports_dir: {reports_dir}\n"
+            "tools:\n"
+            "  subfinder:\n"
+            "    enabled: false\n"
+            "  httpx:\n"
+            "    enabled: false\n"
+            "  gau:\n"
+            "    enabled: false\n"
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(main, "validate_required_tools", lambda tool_names: None)
+
+    main.run_workflow("example.com", config_path, verbose=False)
+
+    output = capsys.readouterr().out
+    assert "Reconbot" in output
+    assert "Target: example.com" in output
+    assert "- subfinder: disabled, binary=subfinder, timeout=120s" in output
+    assert "Complete" in output
+    assert f"Report: {reports_dir / 'example.com.md'}" in output
+    assert f"- {processed_dir / 'subdomains.txt'}" in output
+
+
 def test_run_workflow_skips_disabled_tools(tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
     config_path = tmp_path / "config.yaml"
     processed_dir = tmp_path / "processed"
@@ -138,6 +175,22 @@ def test_run_workflow_validates_required_tools(tmp_path: Path, monkeypatch: Monk
         main.run_workflow("example.com", config_path, verbose=False)
 
     assert calls == [["subfinder", "httpx", "gau"]]
+
+
+def test_main_prints_missing_binary_errors(
+    monkeypatch: MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    def fake_run_workflow(domain: str, config_path: Path, verbose: bool) -> None:
+        raise MissingExternalToolsError("Missing required external tool(s): subfinder.")
+
+    monkeypatch.setattr(main, "run_workflow", fake_run_workflow)
+
+    exit_code = main.main(["--domain", "example.com"])
+
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    assert "Error: Missing required external tool(s): subfinder." in captured.err
 
 
 def test_hosts_from_urls_deduplicates_and_sorts() -> None:

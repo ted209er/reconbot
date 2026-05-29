@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import sys
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -13,7 +14,7 @@ from reconbot.config import Config, get_bool, get_float, get_path, get_section, 
 from reconbot.logging_config import setup_logging
 from reconbot.models import ReconReport, ReconTarget, ToolResult
 from reconbot.reporting import write_markdown_report
-from reconbot.tools.detection import validate_required_tools
+from reconbot.tools.detection import MissingExternalToolsError, validate_required_tools
 from reconbot.tools.gau import find_urls as find_historical_urls
 from reconbot.tools.httpx import find_live_urls
 from reconbot.tools.subfinder import find_subdomains
@@ -44,6 +45,8 @@ def run_workflow(domain: str, config_path: Path, verbose: bool) -> ReconReport:
     target = ReconTarget(domain=domain, config_path=config_path)
     report = ReconReport(target=target)
 
+    _print_startup_banner(target.domain, config_path)
+    _print_tool_settings(tool_settings)
     logger.info("Starting recon workflow for %s", target.domain)
     logger.debug("Loaded configuration from %s", target.config_path)
     logger.info("Checking external tool availability")
@@ -51,6 +54,7 @@ def run_workflow(domain: str, config_path: Path, verbose: bool) -> ReconReport:
 
     subfinder_settings = tool_settings["subfinder"]
     if subfinder_settings.enabled:
+        _print_stage("Subdomain discovery")
         logger.info("Running subdomain discovery")
         subdomains = find_subdomains(
             target.domain,
@@ -66,6 +70,7 @@ def run_workflow(domain: str, config_path: Path, verbose: bool) -> ReconReport:
 
     httpx_settings = tool_settings["httpx"]
     if httpx_settings.enabled:
+        _print_stage("Live host detection")
         logger.info("Running live host detection")
         live_urls = find_live_urls(
             subdomains,
@@ -81,6 +86,7 @@ def run_workflow(domain: str, config_path: Path, verbose: bool) -> ReconReport:
 
     gau_settings = tool_settings["gau"]
     if gau_settings.enabled:
+        _print_stage("Historical URL collection")
         logger.info("Running historical URL collection")
         historical_targets: str | list[str] = _hosts_from_urls(live_urls) or target.domain
         historical_urls = find_historical_urls(
@@ -115,6 +121,13 @@ def run_workflow(domain: str, config_path: Path, verbose: bool) -> ReconReport:
     )
     logger.info("Wrote markdown report to %s", report_path)
     logger.info("Recon workflow complete for %s", target.domain)
+    _print_completion(
+        report_path=report_path,
+        output_paths=[subdomains_path, live_urls_path, historical_urls_path],
+        subdomain_count=len(subdomains),
+        live_url_count=len(live_urls),
+        historical_url_count=len(historical_urls),
+    )
     return report
 
 
@@ -139,6 +152,48 @@ def _load_one_tool_settings(config: Config, tool_name: str) -> ToolSettings:
 def _enabled_binaries(tool_settings: dict[str, ToolSettings]) -> list[str]:
     """Return binaries for enabled external tools."""
     return [settings.binary for settings in tool_settings.values() if settings.enabled]
+
+
+def _print_startup_banner(domain: str, config_path: Path) -> None:
+    """Print a concise startup banner."""
+    print("Reconbot")
+    print(f"Target: {domain}")
+    print(f"Config: {config_path}")
+
+
+def _print_tool_settings(tool_settings: dict[str, ToolSettings]) -> None:
+    """Print enabled tools and configured binaries."""
+    print("Tools:")
+    for name, settings in tool_settings.items():
+        state = "enabled" if settings.enabled else "disabled"
+        print(f"- {name}: {state}, binary={settings.binary}, timeout={settings.timeout:g}s")
+
+
+def _print_stage(name: str) -> None:
+    """Print workflow progress."""
+    print(f"Running: {name}")
+
+
+def _print_completion(
+    *,
+    report_path: Path,
+    output_paths: list[Path],
+    subdomain_count: int,
+    live_url_count: int,
+    historical_url_count: int,
+) -> None:
+    """Print concise completion details."""
+    print("Complete")
+    print(
+        "Summary: "
+        f"{subdomain_count} subdomains, "
+        f"{live_url_count} live URLs, "
+        f"{historical_url_count} historical URLs"
+    )
+    print(f"Report: {report_path}")
+    print("Outputs:")
+    for path in output_paths:
+        print(f"- {path}")
 
 
 def _record_result(report: ReconReport, name: str, values: list[str]) -> None:
@@ -175,8 +230,23 @@ def main(argv: Sequence[str] | None = None) -> int:
             config_path=args.config,
             verbose=args.verbose,
         )
+    except FileNotFoundError:
+        print(f"Error: config file not found: {args.config}", file=sys.stderr)
+        return 2
+    except MissingExternalToolsError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 2
+    except (TypeError, ValueError) as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 2
     except Exception:
-        logging.getLogger("reconbot").exception("Recon workflow failed")
+        if args.verbose:
+            logging.getLogger("reconbot").exception("Recon workflow failed")
+        else:
+            print(
+                "Error: recon workflow failed. Re-run with --verbose for details.",
+                file=sys.stderr,
+            )
         return 1
     return 0
 
