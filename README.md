@@ -58,6 +58,10 @@ python -m pip install -e ".[dev]"
 reconbot --domain example.com --config configs/default.yaml --verbose
 ```
 
+Startup output shows the target, config path, enabled tools and configured
+binaries, progress between stages, summary counts, and the generated report and
+output file locations.
+
 The workflow runs subdomain discovery, live host detection, and historical URL
 collection for the authorized domain. Processed outputs are written to
 `data/processed/`, and a plain markdown report is written to `reports/`.
