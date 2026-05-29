@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Sequence
 
+from reconbot.utils.normalize import http_urls, non_empty_strings
 from reconbot.utils.subprocess_runner import run_command
 
 LOGGER = logging.getLogger(__name__)
@@ -37,13 +38,7 @@ def find_urls(
 
 def parse_urls(output: str) -> list[str]:
     """Parse gau stdout into HTTP/HTTPS URLs."""
-    urls = {
-        candidate
-        for line in output.splitlines()
-        if (candidate := line.strip())
-        and (candidate.startswith("http://") or candidate.startswith("https://"))
-    }
-    return sorted(urls)
+    return http_urls(output.splitlines())
 
 
 def _normalize_targets(targets: str | Sequence[str]) -> list[str]:
@@ -52,4 +47,4 @@ def _normalize_targets(targets: str | Sequence[str]) -> list[str]:
         values = [targets]
     else:
         values = list(targets)
-    return [value.strip() for value in values if value.strip()]
+    return non_empty_strings(values)

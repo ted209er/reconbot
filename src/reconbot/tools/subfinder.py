@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 
+from reconbot.utils.normalize import dedupe_sorted, normalize_domain
 from reconbot.utils.subprocess_runner import run_command
 
 LOGGER = logging.getLogger(__name__)
@@ -32,17 +33,11 @@ def find_subdomains(
 
 def parse_subdomains(output: str, domain: str) -> list[str]:
     """Parse subfinder stdout into a sorted unique subdomain list."""
-    normalized_domain = _normalize_domain(domain)
-    subdomains = {
+    normalized_domain = normalize_domain(domain)
+    return dedupe_sorted(
         candidate
         for line in output.splitlines()
-        if (candidate := _normalize_domain(line))
+        if (candidate := normalize_domain(line))
         and candidate != normalized_domain
         and candidate.endswith(f".{normalized_domain}")
-    }
-    return sorted(subdomains)
-
-
-def _normalize_domain(value: str) -> str:
-    """Normalize a domain-like value from tool output."""
-    return value.strip().lower().rstrip(".")
+    )

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 
+from reconbot.utils.normalize import http_urls, strip_value
 from reconbot.utils.subprocess_runner import run_command
 
 LOGGER = logging.getLogger(__name__)
@@ -20,7 +21,7 @@ def find_live_urls(
     """Run httpx for subdomains and return sorted unique live HTTP/HTTPS URLs."""
     live_urls: set[str] = set()
     for subdomain in subdomains:
-        target = subdomain.strip()
+        target = strip_value(subdomain)
         if not target:
             continue
 
@@ -40,10 +41,4 @@ def find_live_urls(
 
 def parse_live_urls(output: str) -> list[str]:
     """Parse httpx stdout into HTTP/HTTPS URLs."""
-    urls = {
-        candidate
-        for line in output.splitlines()
-        if (candidate := line.strip().lower().rstrip("/"))
-        and (candidate.startswith("http://") or candidate.startswith("https://"))
-    }
-    return sorted(urls)
+    return http_urls(output.splitlines())

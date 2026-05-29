@@ -140,7 +140,26 @@ def test_run_workflow_validates_required_tools(tmp_path: Path, monkeypatch: Monk
     assert calls == [["subfinder", "httpx", "gau"]]
 
 
-def test_hosts_from_urls_deduplicates_and_sorts() -> None:
-    urls = ["https://b.example.com/path", "http://a.example.com", "https://b.example.com"]
+def test_run_workflow_uses_safe_report_filename(tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
+    config_path = tmp_path / "config.yaml"
+    reports_dir = tmp_path / "reports"
+    config_path.write_text(
+        (
+            f"logging:\n  file: {tmp_path / 'reconbot.log'}\n"
+            f"output:\n  processed_dir: {tmp_path / 'processed'}\n  reports_dir: {reports_dir}\n"
+            "tools:\n"
+            "  subfinder:\n"
+            "    enabled: false\n"
+            "  httpx:\n"
+            "    enabled: false\n"
+            "  gau:\n"
+            "    enabled: false\n"
+        ),
+        encoding="utf-8",
+    )
 
-    assert main._hosts_from_urls(urls) == ["a.example.com", "b.example.com"]
+    monkeypatch.setattr(main, "validate_required_tools", lambda tool_names: None)
+
+    main.run_workflow("Example Domain.com", config_path, verbose=False)
+
+    assert (reports_dir / "example-domain.com.md").exists()

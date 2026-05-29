@@ -63,5 +63,11 @@ Each wrapper can receive an enabled flag, binary name/path, and timeout from the
 main workflow. Disabled tools are skipped by orchestration, and detection only
 checks enabled binaries.
 
+`src/reconbot/utils/normalize.py` contains pure helpers for common output cleanup:
+stripping values, filtering empty strings, sorting and deduplicating lists,
+normalizing URLs/domains, extracting hostnames, and building safe filenames.
+Wrappers use these helpers for newline-based parsing so output handling stays
+consistent without adding validation frameworks.
+
 Higher-level modules under `src/reconbot/modules/` should compose wrappers into
 workflow steps. They should not duplicate subprocess execution behavior.

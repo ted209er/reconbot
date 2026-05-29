@@ -6,7 +6,6 @@ import logging
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from urllib.parse import urlparse
 
 from reconbot.cli import parse_args
 from reconbot.config import Config, get_bool, get_float, get_path, get_section, get_str, load_config
@@ -17,6 +16,7 @@ from reconbot.tools.detection import validate_required_tools
 from reconbot.tools.gau import find_urls as find_historical_urls
 from reconbot.tools.httpx import find_live_urls
 from reconbot.tools.subfinder import find_subdomains
+from reconbot.utils.normalize import hostnames_from_urls, safe_filename
 
 REQUIRED_EXTERNAL_TOOLS = ("subfinder", "httpx", "gau")
 
@@ -82,7 +82,7 @@ def run_workflow(domain: str, config_path: Path, verbose: bool) -> ReconReport:
     gau_settings = tool_settings["gau"]
     if gau_settings.enabled:
         logger.info("Running historical URL collection")
-        historical_targets: str | list[str] = _hosts_from_urls(live_urls) or target.domain
+        historical_targets: str | list[str] = hostnames_from_urls(live_urls) or target.domain
         historical_urls = find_historical_urls(
             historical_targets,
             binary=gau_settings.binary,
@@ -103,7 +103,7 @@ def run_workflow(domain: str, config_path: Path, verbose: bool) -> ReconReport:
         len(historical_urls),
     )
     report.complete()
-    report_path = reports_dir / f"{target.domain}.md"
+    report_path = reports_dir / f"{safe_filename(target.domain)}.md"
     write_markdown_report(
         report,
         {
@@ -157,12 +157,6 @@ def _write_lines(path: Path, values: list[str]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     content = "\n".join(values)
     path.write_text(f"{content}\n" if content else "", encoding="utf-8")
-
-
-def _hosts_from_urls(urls: list[str]) -> list[str]:
-    """Extract sorted unique hostnames from HTTP URLs."""
-    hosts = {parsed.netloc for url in urls if (parsed := urlparse(url)).netloc}
-    return sorted(hosts)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
