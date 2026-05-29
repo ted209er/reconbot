@@ -86,6 +86,9 @@ output file locations.
 The workflow runs subdomain discovery, live host detection, and historical URL
 collection for the authorized domain. Processed outputs are written to
 `data/processed/`, and a plain markdown report is written to `reports/`.
+Completed run summaries are also stored in a local SQLite database at
+`data/reconbot.db` so future features can compare runs without parsing report
+files.
 
 Tool wrappers expect their external binaries to be installed separately and
 available on `PATH`. The current wrappers expect ProjectDiscovery `subfinder`

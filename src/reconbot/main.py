@@ -11,6 +11,7 @@ from urllib.parse import urlparse
 
 from reconbot.cli import parse_args
 from reconbot.config import Config, get_bool, get_float, get_path, get_section, get_str, load_config
+from reconbot.history import DEFAULT_DATABASE_PATH, initialize_database, record_run
 from reconbot.logging_config import setup_logging
 from reconbot.models import ReconReport, ReconTarget, ToolResult
 from reconbot.reporting import write_markdown_report
@@ -20,6 +21,7 @@ from reconbot.tools.httpx import find_live_urls
 from reconbot.tools.subfinder import find_subdomains
 
 REQUIRED_EXTERNAL_TOOLS = ("subfinder", "httpx", "gau")
+HISTORY_DATABASE_PATH = DEFAULT_DATABASE_PATH
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,6 +51,8 @@ def run_workflow(domain: str, config_path: Path, verbose: bool) -> ReconReport:
     _print_tool_settings(tool_settings)
     logger.info("Starting recon workflow for %s", target.domain)
     logger.debug("Loaded configuration from %s", target.config_path)
+    logger.info("Initializing run history database at %s", HISTORY_DATABASE_PATH)
+    initialize_database(HISTORY_DATABASE_PATH)
     logger.info("Checking external tool availability")
     validate_required_tools(_enabled_binaries(tool_settings))
 
@@ -109,6 +113,17 @@ def run_workflow(domain: str, config_path: Path, verbose: bool) -> ReconReport:
         len(historical_urls),
     )
     report.complete()
+    if report.finished_at is None:
+        raise RuntimeError("report completion timestamp was not set")
+    record_run(
+        target=target.domain,
+        started_at=report.started_at,
+        completed_at=report.finished_at,
+        subdomain_count=len(subdomains),
+        live_url_count=len(live_urls),
+        url_count=len(historical_urls),
+        database_path=HISTORY_DATABASE_PATH,
+    )
     report_path = reports_dir / f"{target.domain}.md"
     write_markdown_report(
         report,

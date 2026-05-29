@@ -4,7 +4,13 @@ import pytest
 from pytest import MonkeyPatch
 
 from reconbot import main
+from reconbot.history import list_recent_runs
 from reconbot.tools.detection import MissingExternalToolsError
+
+
+@pytest.fixture(autouse=True)
+def _use_temp_history_database(tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
+    monkeypatch.setattr(main, "HISTORY_DATABASE_PATH", tmp_path / "reconbot.db")
 
 
 def test_run_workflow_calls_wrappers_and_writes_outputs(
@@ -80,6 +86,12 @@ def test_run_workflow_calls_wrappers_and_writes_outputs(
     assert "- Subdomain count: 2" in report_text
     assert "- Live host count: 2" in report_text
     assert "- URL count: 2" in report_text
+    history = list_recent_runs(database_path=main.HISTORY_DATABASE_PATH)
+    assert len(history) == 1
+    assert history[0].target == "example.com"
+    assert history[0].subdomain_count == 2
+    assert history[0].live_url_count == 2
+    assert history[0].url_count == 2
 
 
 def test_run_workflow_prints_startup_progress_and_summary(
