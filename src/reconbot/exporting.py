@@ -25,6 +25,8 @@ def build_json_export(
     screenshots: Mapping[str, Path],
     screenshot_diff: Mapping[str, list[str]],
     prioritized_assets: list[PrioritizedAsset],
+    subdomain_sources: Mapping[str, int],
+    historical_url_sources: Mapping[str, int],
 ) -> dict[str, Any]:
     """Build a deterministic JSON-serializable export."""
     screenshot_paths = {url: str(path) for url, path in sorted(screenshots.items())}
@@ -50,6 +52,10 @@ def build_json_export(
         "screenshot_paths": screenshot_paths,
         "screenshot_changes": _sorted_change_lists(screenshot_diff),
         "prioritized_assets": _prioritized_assets(prioritized_assets),
+        "discovery_sources": {
+            "subdomains": dict(sorted(subdomain_sources.items())),
+            "historical_urls": dict(sorted(historical_url_sources.items())),
+        },
     }
 
 

@@ -10,6 +10,14 @@ tools:
     enabled: true
     binary: subfinder
     timeout: 120
+  assetfinder:
+    enabled: true
+    binary: assetfinder
+    timeout: 120
+  crtsh:
+    enabled: true
+    binary: curl
+    timeout: 120
   httpx:
     enabled: true
     binary: httpx
@@ -17,6 +25,10 @@ tools:
   gau:
     enabled: true
     binary: gau
+    timeout: 120
+  waybackurls:
+    enabled: true
+    binary: waybackurls
     timeout: 120
   screenshots:
     enabled: true

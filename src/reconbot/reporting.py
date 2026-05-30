@@ -20,6 +20,8 @@ def write_markdown_report(
     screenshots: Mapping[str, Path] | None = None,
     screenshot_diff: Mapping[str, list[str]] | None = None,
     prioritized_assets: list[PrioritizedAsset] | None = None,
+    subdomain_sources: Mapping[str, int] | None = None,
+    historical_url_sources: Mapping[str, int] | None = None,
 ) -> Path:
     """Write a plain markdown report to disk."""
     report_path.parent.mkdir(parents=True, exist_ok=True)
@@ -33,6 +35,8 @@ def write_markdown_report(
         screenshots,
         screenshot_diff,
         prioritized_assets,
+        subdomain_sources,
+        historical_url_sources,
     )
     report_path.write_text(markdown, encoding="utf-8")
     return report_path
@@ -48,6 +52,8 @@ def build_markdown_report(
     screenshots: Mapping[str, Path] | None = None,
     screenshot_diff: Mapping[str, list[str]] | None = None,
     prioritized_assets: list[PrioritizedAsset] | None = None,
+    subdomain_sources: Mapping[str, int] | None = None,
+    historical_url_sources: Mapping[str, int] | None = None,
 ) -> str:
     """Build a plain markdown report for a recon run."""
     lines = [
@@ -69,6 +75,8 @@ def build_markdown_report(
         lines.extend(_build_screenshot_section(screenshots, screenshot_diff))
     if prioritized_assets is not None:
         lines.extend(_build_prioritized_asset_section(prioritized_assets))
+    if subdomain_sources is not None or historical_url_sources is not None:
+        lines.extend(_build_discovery_sources_section(subdomain_sources, historical_url_sources))
     lines.extend(_build_output_file_section(output_files))
     return "\n".join(lines)
 
@@ -200,6 +208,25 @@ def _build_prioritized_asset_section(assets: list[PrioritizedAsset]) -> list[str
         lines.append("")
         for reason in asset.reasons:
             lines.append(f"   - {reason}")
+        lines.append("")
+    return lines
+
+
+def _build_discovery_sources_section(
+    subdomain_sources: Mapping[str, int] | None,
+    historical_url_sources: Mapping[str, int] | None,
+) -> list[str]:
+    """Build markdown lines for passive source result counts."""
+    lines = ["## Discovery Sources Summary", ""]
+    if subdomain_sources is not None:
+        lines.extend(["Subdomains:", ""])
+        for source, count in sorted(subdomain_sources.items()):
+            lines.append(f"- {source}: {count}")
+        lines.append("")
+    if historical_url_sources is not None:
+        lines.extend(["Historical URLs:", ""])
+        for source, count in sorted(historical_url_sources.items()):
+            lines.append(f"- {source}: {count}")
         lines.append("")
     return lines
 

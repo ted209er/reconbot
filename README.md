@@ -84,8 +84,8 @@ Startup output shows the target, config path, enabled tools and configured
 binaries, progress between stages, summary counts, and the generated report and
 output file locations.
 
-The workflow runs subdomain discovery, live host detection, passive technology
-fingerprinting, screenshot capture, and historical URL collection for the authorized domain.
+The workflow runs passive subdomain discovery, live host detection, passive
+technology fingerprinting, screenshot capture, and historical URL collection for the authorized domain.
 Processed outputs are written to `data/processed/`, and a plain markdown report
 is written to `reports/`.
 Completed run summaries are also stored in a local SQLite database at
@@ -109,7 +109,12 @@ admin/login/auth URL keywords add 3, API keywords add 2, and screenshots add 1.
 
 Tool wrappers expect their external binaries to be installed separately and
 available on `PATH`. The current wrappers expect ProjectDiscovery `subfinder`
-and `httpx`, `gau`, and `gowitness` for screenshots.
+and `httpx`, `assetfinder`, `gau`, `waybackurls`, `curl` for crt.sh lookups, and
+`gowitness` for screenshots.
+
+Subdomain discovery merges passive results from `subfinder`, `assetfinder`, and
+crt.sh. Historical URL discovery merges passive results from `gau` and
+`waybackurls`. Reports and JSON exports include per-source discovery counts.
 
 Technology fingerprinting reuses the configured `httpx` binary with passive
 technology detection options:
@@ -154,6 +159,18 @@ tools:
     enabled: true
     binary: subfinder
     timeout: 120
+  assetfinder:
+    enabled: true
+    binary: assetfinder
+    timeout: 120
+  crtsh:
+    enabled: true
+    binary: curl
+    timeout: 120
+  waybackurls:
+    enabled: true
+    binary: waybackurls
+    timeout: 120
   screenshots:
     enabled: true
     binary: gowitness
@@ -170,8 +187,11 @@ available on `PATH` before rerunning:
 
 ```bash
 subfinder -version
+assetfinder --help
 httpx -version
 gau --version
+waybackurls --help
+curl --version
 gowitness version
 ```
 

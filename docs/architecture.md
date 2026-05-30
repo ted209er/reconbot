@@ -45,9 +45,10 @@ future integrations. Exports are written to
 `output.write_json` is enabled.
 
 The export layer uses only the standard library. It serializes run metadata,
-output paths, counts, discoveries, technology summaries and changes, screenshot
-paths and changes, prioritized assets, and the markdown report path. It does not
-add APIs, web services, dashboards, or external serialization libraries.
+output paths, counts, discoveries, passive source counts, technology summaries
+and changes, screenshot paths and changes, prioritized assets, and the markdown
+report path. It does not add APIs, web services, dashboards, or external
+serialization libraries.
 
 ## Prioritization Layer
 
@@ -122,10 +123,14 @@ functions or classes that accept typed inputs and return `ToolResult` or another
 explicit model. A wrapper should build an argument list, call the subprocess
 runner when invoking a local binary, and keep parsing logic scoped to that tool.
 
-The subfinder, httpx, and gau wrappers follow this pattern: they accept typed
-inputs, call `run_command()` with argument lists, and parse newline-based stdout
-into sorted unique results. They expect the external binaries to be installed on
-`PATH` and are not wired into orchestration yet.
+The subfinder, assetfinder, crt.sh, httpx, gau, waybackurls, and screenshot
+wrappers follow this pattern: they accept typed inputs, call `run_command()` with
+argument lists, and parse output into sorted unique results.
+
+Subdomain discovery merges passive output from subfinder, assetfinder, and
+crt.sh. Historical URL discovery merges passive output from gau and waybackurls.
+Reports and JSON exports include a discovery source summary so users can see how
+many results came from each source.
 
 Tool runtime settings are loaded from the small `tools:` section in YAML config.
 Each wrapper can receive an enabled flag, binary name/path, and timeout from the
