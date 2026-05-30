@@ -25,9 +25,10 @@ modules must preserve this boundary.
 - `src/reconbot/main.py` contains the placeholder orchestration flow.
 - `src/reconbot/utils/subprocess_runner.py` wraps `subprocess.run` safely,
   captures output, supports timeouts, and returns `ToolResult` objects.
-- `src/reconbot/tools/` contains lightweight tool wrappers such as the subfinder,
-  httpx, and gau wrappers. Wrappers build safe argument lists, call shared
-  helpers, and keep parsing local to the tool.
+- `src/reconbot/tools/` contains lightweight tool wrappers such as the
+  subfinder, assetfinder, crt.sh, httpx, gau, and waybackurls wrappers.
+  Wrappers build safe argument lists, call shared helpers, and keep parsing
+  local to the tool.
 - `src/reconbot/modules/` is reserved for orchestration modules that compose tool
   wrappers into workflow phases.
 - `configs/default.yaml` contains the default application configuration.
@@ -68,10 +69,87 @@ make validate
 reconbot --domain example.com --config configs/default.yaml
 ```
 
-Reconbot uses external binaries for tool wrappers. Install `subfinder`, `httpx`,
-and `gau` before running enabled tools. See
+Reconbot uses external binaries for tool wrappers. Install `subfinder`,
+`assetfinder`, `httpx`, `gau`, `waybackurls`, and `gowitness` before running
+enabled tools. Certificate Transparency lookup uses the public crt.sh service
+through `curl`. See
 [Tool Installation](docs/tool-installation.md) for Ubuntu, WSL Ubuntu, and macOS
 commands.
+
+## Feature-To-Tool Map
+
+| Feature | Tool |
+| --- | --- |
+| Subdomain Discovery | `subfinder` |
+| Subdomain Discovery | `assetfinder` |
+| Certificate Transparency | `crt.sh` through `curl` |
+| Historical URLs | `gau` |
+| Historical URLs | `waybackurls` |
+| Fingerprinting | `httpx` |
+| Screenshots | `gowitness` |
+
+## Verify Your Environment
+
+After installing external tools, confirm Reconbot can find the expected
+binaries:
+
+```bash
+subfinder -version
+assetfinder --help
+httpx -version
+gau --help
+waybackurls --help
+gowitness version
+```
+
+`crt.sh` is a web source, not a local binary. Reconbot calls it with `curl`,
+which is installed by default on many systems and included in the full setup
+steps in [docs/tool-installation.md](docs/tool-installation.md).
+
+## First Run
+
+From the repo root:
+
+```bash
+python3.11 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+pip install -e ".[dev]"
+
+make validate
+
+reconbot --help
+reconbot --domain example.com --config configs/default.yaml
+```
+
+Use only domains you own or have explicit written authorization to test. If
+`reconbot --help` works but a real run fails immediately, check the missing
+binary message and run the matching command in "Verify Your Environment".
+
+## Running From A Workspace
+
+Keep generated recon output outside the Git checkout when you are working
+multiple authorized targets. A simple layout is:
+
+```text
+~/Recon/company-a
+~/Recon/company-b
+```
+
+Run Reconbot from a workspace and point back to the repo config and installed
+CLI:
+
+```bash
+mkdir -p ~/Recon/company-a
+cd ~/Recon/company-a
+/home/user/Repos/reconbot/.venv/bin/reconbot \
+  --domain example.com \
+  --config /home/user/Repos/reconbot/configs/default.yaml \
+  --run-name first-run
+```
+
+Reconbot writes `data/`, `reports/`, and `logs/` relative to the current
+workspace unless those paths are changed in the config.
 
 ## Running
 
@@ -193,7 +271,7 @@ available on `PATH` before rerunning:
 subfinder -version
 assetfinder --help
 httpx -version
-gau --version
+gau --help
 waybackurls --help
 curl --version
 gowitness version

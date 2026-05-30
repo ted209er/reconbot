@@ -8,6 +8,14 @@ Reconbot uses simple semantic versioning:
 - `MINOR`: new features
 - `PATCH`: fixes and small improvements
 
+## [Unreleased]
+
+### Changed
+
+- Expanded installation and onboarding documentation with the full supported
+  external tool list, feature-to-tool mapping, verification commands, first-run
+  steps, workspace usage, and troubleshooting guidance.
+
 ## [0.1.0] - Initial MVP
 
 ### Added

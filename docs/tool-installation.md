@@ -1,29 +1,52 @@
 # Tool Installation
 
-Reconbot calls external recon tools through small Python wrappers. Install these
-binaries yourself, then confirm they are available on `PATH`.
+Reconbot calls external recon tools through small Python wrappers. Install the
+binaries yourself, confirm they are on `PATH`, then run the local validation
+target before the first real recon run.
 
-Required tools for the current workflow:
+Use Reconbot only against assets you own or have explicit written authorization
+to test.
 
-- `subfinder`
-- `httpx`
-- `gau`
+## Supported Tools
+
+| Feature | Tool | Local binary |
+| --- | --- | --- |
+| Subdomain Discovery | `subfinder` | `subfinder` |
+| Subdomain Discovery | `assetfinder` | `assetfinder` |
+| Certificate Transparency | `crt.sh` | `curl` |
+| Historical URLs | `gau` | `gau` |
+| Historical URLs | `waybackurls` | `waybackurls` |
+| Fingerprinting | `httpx` | `httpx` |
+| Screenshots | `gowitness` | `gowitness` |
+
+`crt.sh` is a public web source, not an installed recon binary. Reconbot queries
+it with `curl`.
 
 ## Ubuntu 20.04+
 
-Install Python and Go:
+Install Python, Go, curl, and Chromium for screenshot support:
 
 ```bash
 sudo apt update
-sudo apt install python3.11 python3.11-venv python3-pip golang-go
+sudo apt install python3.11 python3.11-venv python3-pip golang-go curl chromium-browser
+```
+
+If your Ubuntu release does not provide `chromium-browser`, install `chromium`
+instead:
+
+```bash
+sudo apt install chromium
 ```
 
 Install the recon tools:
 
 ```bash
-go install github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest
-go install github.com/projectdiscovery/httpx/cmd/httpx@latest
+go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest
+go install github.com/tomnomnom/assetfinder@latest
+go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest
 go install github.com/lc/gau/v2/cmd/gau@latest
+go install github.com/tomnomnom/waybackurls@latest
+go install github.com/sensepost/gowitness@latest
 ```
 
 Add Go-installed binaries to your shell path:
@@ -35,30 +58,44 @@ source ~/.bashrc
 
 ## WSL Ubuntu
 
-Use the same commands as Ubuntu inside your WSL shell:
+Use the Ubuntu commands inside your WSL shell:
 
 ```bash
 sudo apt update
-sudo apt install python3.11 python3.11-venv python3-pip golang-go
-go install github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest
-go install github.com/projectdiscovery/httpx/cmd/httpx@latest
+sudo apt install python3.11 python3.11-venv python3-pip golang-go curl chromium-browser
+go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest
+go install github.com/tomnomnom/assetfinder@latest
+go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest
 go install github.com/lc/gau/v2/cmd/gau@latest
+go install github.com/tomnomnom/waybackurls@latest
+go install github.com/sensepost/gowitness@latest
 echo 'export PATH="$HOME/go/bin:$PATH"' >> ~/.bashrc
 source ~/.bashrc
 ```
 
-Run Reconbot from the WSL filesystem, such as `~/Repos/reconbot`, rather than a
-mounted Windows path when possible.
+Run Reconbot from the WSL filesystem, such as `~/Repos/reconbot` or
+`~/Recon/company-a`, rather than a mounted Windows path when possible. This
+avoids slow file I/O and path translation surprises.
 
 ## macOS
 
-Install Python and Go with your preferred package manager, then install the
-tools with Go:
+Install Python, Go, curl, and Chrome or Chromium with your preferred package
+manager. With Homebrew:
 
 ```bash
-go install github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest
-go install github.com/projectdiscovery/httpx/cmd/httpx@latest
+brew install python@3.11 go curl
+brew install --cask google-chrome
+```
+
+Install the recon tools:
+
+```bash
+go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest
+go install github.com/tomnomnom/assetfinder@latest
+go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest
 go install github.com/lc/gau/v2/cmd/gau@latest
+go install github.com/tomnomnom/waybackurls@latest
+go install github.com/sensepost/gowitness@latest
 ```
 
 Add Go-installed binaries to your shell path:
@@ -68,7 +105,29 @@ echo 'export PATH="$HOME/go/bin:$PATH"' >> ~/.zshrc
 source ~/.zshrc
 ```
 
-## Reconbot Setup
+## Verify Tools
+
+Run these commands from a new terminal after updating `PATH`:
+
+```bash
+subfinder -version
+assetfinder --help
+httpx -version
+gau --help
+waybackurls --help
+gowitness version
+```
+
+Also confirm `curl` is available for crt.sh lookups:
+
+```bash
+curl --version
+```
+
+If any command prints `command not found`, fix that tool before starting a
+Reconbot run.
+
+## First Run
 
 From the repo root:
 
@@ -76,67 +135,125 @@ From the repo root:
 python3.11 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
-python -m pip install -e ".[dev]"
+pip install -e ".[dev]"
+
 make validate
-```
 
-## Verify Tools
-
-```bash
-subfinder -version
-httpx -version
-gau --help
-```
-
-## Run Reconbot
-
-```bash
+reconbot --help
 reconbot --domain example.com --config configs/default.yaml
 ```
 
-Use only domains you own or have explicit written authorization to test.
+The first real run creates local `data/`, `reports/`, and `logs/` directories.
+Reports include output paths, discovery source counts, technology summaries,
+screenshot metadata, and changes compared with the previous run for the same
+target.
+
+## Running From A Workspace
+
+Use a separate workspace directory when you want target-specific output outside
+the Git checkout:
+
+```text
+~/Recon/company-a
+```
+
+Example:
+
+```bash
+mkdir -p ~/Recon/company-a
+cd ~/Recon/company-a
+/home/user/Repos/reconbot/.venv/bin/reconbot \
+  --domain example.com \
+  --config /home/user/Repos/reconbot/configs/default.yaml \
+  --run-name first-run
+```
+
+Output paths in `configs/default.yaml` are relative. When you run from
+`~/Recon/company-a`, Reconbot writes to `~/Recon/company-a/data`,
+`~/Recon/company-a/reports`, and `~/Recon/company-a/logs`.
 
 ## Troubleshooting
 
-### Missing Binary Errors
+### Missing Tool
 
-If Reconbot reports a missing binary, run the matching verification command:
+Reconbot checks enabled tool binaries before running the workflow. If it reports
+a missing tool, run the matching verification command:
 
 ```bash
 subfinder -version
+assetfinder --help
 httpx -version
 gau --help
+waybackurls --help
+gowitness version
+curl --version
 ```
 
-If the command fails, install the tool or update `configs/default.yaml` to point
-`binary` at the full executable path.
+If the command fails, install the tool, reopen your terminal, or update the
+matching `tools.<name>.binary` value in `configs/default.yaml` to the full
+executable path.
 
-### PATH Issues
+### Missing Config
 
-Go usually installs binaries into `~/go/bin`. Confirm your shell can find them:
+`reconbot --config` must point to an existing YAML file. From outside the repo,
+use an absolute config path:
 
 ```bash
-which subfinder
-which httpx
-which gau
+reconbot --domain example.com --config /home/user/Repos/reconbot/configs/default.yaml
 ```
 
-If these commands print nothing, add Go binaries to `PATH` and reopen your
-terminal:
+From the repo root, the default works:
 
 ```bash
-export PATH="$HOME/go/bin:$PATH"
+reconbot --domain example.com
 ```
 
-### Virtualenv Issues
+### pyenv Issues
 
-If `make validate` says `.venv` is missing, recreate the local environment:
+If `python3.11` is missing but you use pyenv, install and select Python 3.11:
 
 ```bash
-python3.11 -m venv .venv
+pyenv install 3.11
+pyenv local 3.11
+python -m venv .venv
 source .venv/bin/activate
-python -m pip install -e ".[dev]"
+python -m pip install --upgrade pip
+pip install -e ".[dev]"
 ```
 
-Makefile targets use `.venv/bin/...` directly, so the `.venv` directory must
-exist in the repo root.
+If `make validate` still uses an old interpreter, remove and recreate `.venv`
+from the selected Python:
+
+```bash
+rm -rf .venv
+python -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev]"
+```
+
+### Go Installation Issues
+
+Go installs binaries into `~/go/bin` by default. Confirm Go and the install
+directory are visible:
+
+```bash
+go version
+go env GOPATH
+ls "$(go env GOPATH)/bin"
+```
+
+If the tools exist but your shell cannot find them, add Go's bin directory to
+`PATH`:
+
+```bash
+export PATH="$(go env GOPATH)/bin:$PATH"
+```
+
+Persist that line in `~/.bashrc` for Ubuntu and WSL Ubuntu, or `~/.zshrc` for
+macOS.
+
+Some Go-installed tools, including `httpx` and `gowitness`, may require a newer
+Go release than the one packaged by older operating systems. If `go install`
+fails with a Go version error, install a current Go release from your OS package
+manager, Homebrew, or the official Go downloads, then rerun the failed
+`go install` command.
