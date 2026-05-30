@@ -85,7 +85,7 @@ binaries, progress between stages, summary counts, and the generated report and
 output file locations.
 
 The workflow runs subdomain discovery, live host detection, passive technology
-fingerprinting, and historical URL collection for the authorized domain.
+fingerprinting, screenshot capture, and historical URL collection for the authorized domain.
 Processed outputs are written to `data/processed/`, and a plain markdown report
 is written to `reports/`.
 Completed run summaries are also stored in a local SQLite database at
@@ -95,10 +95,12 @@ Reports include a small comparison against the most recent previous run for the
 same target, including added and removed subdomains and live URLs.
 Reports also include a technology summary and technology changes detected across
 live URLs.
+Screenshots for live URLs are stored under
+`reports/screenshots/<safe-target-name>/` and linked from markdown reports.
 
 Tool wrappers expect their external binaries to be installed separately and
 available on `PATH`. The current wrappers expect ProjectDiscovery `subfinder`
-and `httpx`, plus `gau`.
+and `httpx`, `gau`, and `gowitness` for screenshots.
 
 Technology fingerprinting reuses the configured `httpx` binary with passive
 technology detection options:
@@ -109,6 +111,12 @@ httpx -silent -json -tech-detect -u https://example.com
 
 Reconbot parses the JSON output for technology names such as web servers, CDNs,
 CMSs, frameworks, and language indicators.
+
+Screenshot capture uses the configured `gowitness` binary:
+
+```bash
+gowitness scan single --url https://example.com --screenshot-path reports/screenshots/example-com
+```
 
 ## Scheduling
 
@@ -132,6 +140,10 @@ tools:
     enabled: true
     binary: subfinder
     timeout: 120
+  screenshots:
+    enabled: true
+    binary: gowitness
+    timeout: 300
 ```
 
 Use `enabled: false` to skip a tool, `binary` to point at a custom executable
@@ -145,6 +157,7 @@ available on `PATH` before rerunning:
 subfinder -version
 httpx -version
 gau --version
+gowitness version
 ```
 
 ## Validation

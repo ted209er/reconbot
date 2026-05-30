@@ -43,6 +43,9 @@ def test_run_workflow_calls_wrappers_and_writes_outputs(
             "  gau:\n"
             "    binary: custom-gau\n"
             "    timeout: 30\n"
+            "  screenshots:\n"
+            "    binary: custom-gowitness\n"
+            "    timeout: 40\n"
         ),
         encoding="utf-8",
     )
@@ -74,10 +77,21 @@ def test_run_workflow_calls_wrappers_and_writes_outputs(
         calls.append(("gau", targets, binary, timeout))
         return ["https://a.example.com/login", "https://b.example.com/archive"]
 
+    def fake_capture_screenshots(
+        urls: list[str],
+        *,
+        output_dir: Path,
+        binary: str,
+        timeout: float,
+    ) -> dict[str, Path]:
+        calls.append(("screenshots", urls, binary, timeout))
+        return {"https://a.example.com": output_dir / "https-a.example.com.png"}
+
     monkeypatch.setattr(main, "validate_required_tools", fake_validate_required_tools)
     monkeypatch.setattr(main, "find_subdomains", fake_find_subdomains)
     monkeypatch.setattr(main, "find_live_urls", fake_find_live_urls)
     monkeypatch.setattr(main, "fingerprint_urls", fake_fingerprint_urls)
+    monkeypatch.setattr(main, "capture_screenshots", fake_capture_screenshots)
     monkeypatch.setattr(main, "find_historical_urls", fake_find_urls)
 
     report = main.run_workflow("example.com", config_path, verbose=False, run_name="daily")
@@ -86,9 +100,17 @@ def test_run_workflow_calls_wrappers_and_writes_outputs(
         ("subfinder", "example.com", "custom-subfinder", 10.0),
         ("httpx", ["a.example.com", "b.example.com"], "custom-httpx", 20.0),
         ("fingerprinting", ["https://a.example.com", "http://b.example.com"], "custom-httpx", 20.0),
+        (
+            "screenshots",
+            ["https://a.example.com", "http://b.example.com"],
+            "custom-gowitness",
+            40.0,
+        ),
         ("gau", ["a.example.com", "b.example.com"], "custom-gau", 30.0),
     ]
-    assert validation_calls == [["custom-subfinder", "custom-httpx", "custom-gau"]]
+    assert validation_calls == [
+        ["custom-subfinder", "custom-httpx", "custom-gau", "custom-gowitness"]
+    ]
     assert report.target.domain == "example.com"
     assert [result.name for result in report.results] == ["subfinder", "httpx", "gau"]
     assert (processed_dir / "subdomains.txt").read_text(encoding="utf-8") == (
@@ -144,6 +166,8 @@ def test_run_workflow_prints_startup_progress_and_summary(
             "    enabled: false\n"
             "  gau:\n"
             "    enabled: false\n"
+            "  screenshots:\n"
+            "    enabled: false\n"
         ),
         encoding="utf-8",
     )
@@ -175,6 +199,8 @@ def test_run_workflow_skips_disabled_tools(tmp_path: Path, monkeypatch: MonkeyPa
             "    enabled: false\n"
             "  gau:\n"
             "    enabled: false\n"
+            "  screenshots:\n"
+            "    enabled: false\n"
         ),
         encoding="utf-8",
     )
@@ -190,6 +216,7 @@ def test_run_workflow_skips_disabled_tools(tmp_path: Path, monkeypatch: MonkeyPa
     monkeypatch.setattr(main, "find_subdomains", fail_if_called)
     monkeypatch.setattr(main, "find_live_urls", fail_if_called)
     monkeypatch.setattr(main, "fingerprint_urls", fail_if_called)
+    monkeypatch.setattr(main, "capture_screenshots", fail_if_called)
     monkeypatch.setattr(main, "find_historical_urls", fail_if_called)
 
     report = main.run_workflow("example.com", config_path, verbose=False)
@@ -218,6 +245,8 @@ def test_run_workflow_reports_diff_from_previous_run(
             "  httpx:\n"
             "    enabled: true\n"
             "  gau:\n"
+            "    enabled: false\n"
+            "  screenshots:\n"
             "    enabled: false\n"
         ),
         encoding="utf-8",
@@ -300,7 +329,7 @@ def test_run_workflow_validates_required_tools(tmp_path: Path, monkeypatch: Monk
     with pytest.raises(RuntimeError, match="missing tools"):
         main.run_workflow("example.com", config_path, verbose=False)
 
-    assert calls == [["subfinder", "httpx", "gau"]]
+    assert calls == [["subfinder", "httpx", "gau", "gowitness"]]
 
 
 def test_main_prints_missing_binary_errors(

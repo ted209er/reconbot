@@ -137,3 +137,29 @@ def test_build_markdown_report_includes_run_name() -> None:
     )
 
     assert "- Run name: `daily`" in markdown
+
+
+def test_build_markdown_report_includes_screenshot_summary() -> None:
+    report = ReconReport(
+        target=ReconTarget(domain="example.com", config_path=Path("config.yaml"))
+    )
+
+    markdown = build_markdown_report(
+        report,
+        {
+            "subdomains": Path("subdomains.txt"),
+            "live_hosts": Path("live_urls.txt"),
+            "historical_urls": Path("historical_urls.txt"),
+            "screenshots": Path("reports/screenshots/example-com"),
+        },
+        screenshots={
+            "https://admin.example.com": Path("reports/screenshots/example-com/admin.png"),
+            "https://blog.example.com": Path("reports/screenshots/example-com/blog.png"),
+        },
+    )
+
+    assert "## Screenshots" in markdown
+    assert "- Screenshots Captured: 2" in markdown
+    assert "- reports/screenshots/example-com/admin.png" in markdown
+    assert "- reports/screenshots/example-com/blog.png" in markdown
+    assert "- Screenshots: `reports/screenshots/example-com`" in markdown

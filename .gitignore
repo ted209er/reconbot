@@ -32,6 +32,7 @@ logs/*
 # Generated recon data and reports
 data/raw/*
 data/processed/*
+reports/screenshots/
 reports/*
 !data/raw/.gitkeep
 !data/processed/.gitkeep

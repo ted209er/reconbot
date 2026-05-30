@@ -7,12 +7,14 @@ from reconbot.history import (
     calculate_removed_items,
     calculate_removed_technologies,
     get_previous_live_urls,
+    get_previous_screenshots,
     get_previous_subdomains,
     get_previous_technologies,
     initialize_database,
     list_recent_runs,
     record_live_urls,
     record_run,
+    record_screenshots,
     record_subdomains,
     record_technologies,
 )
@@ -179,3 +181,31 @@ def test_calculate_added_and_removed_technologies_are_sorted() -> None:
 
     assert calculate_added_technologies(current, previous) == ["FastAPI"]
     assert calculate_removed_technologies(current, previous) == ["Drupal"]
+
+
+def test_records_and_reads_previous_screenshots(tmp_path: Path) -> None:
+    database_path = tmp_path / "reconbot.db"
+    started_at = datetime(2026, 5, 29, 12, 0, tzinfo=UTC)
+    run_id = record_run(
+        target="example.com",
+        started_at=started_at,
+        completed_at=started_at + timedelta(seconds=5),
+        subdomain_count=0,
+        live_url_count=1,
+        url_count=0,
+        database_path=database_path,
+    )
+
+    record_screenshots(
+        run_id=run_id,
+        screenshots={
+            "https://a.example.com": Path("reports/screenshots/example-com/a.png"),
+            "https://b.example.com": Path("reports/screenshots/example-com/b.png"),
+        },
+        database_path=database_path,
+    )
+
+    assert get_previous_screenshots(target="example.com", database_path=database_path) == [
+        "reports/screenshots/example-com/a.png",
+        "reports/screenshots/example-com/b.png",
+    ]
