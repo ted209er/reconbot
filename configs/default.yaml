@@ -3,6 +3,8 @@ logging:
 output:
   processed_dir: data/processed
   reports_dir: reports
+  json_exports_dir: reports/json
+  write_json: true
 tools:
   subfinder:
     enabled: true
