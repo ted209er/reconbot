@@ -46,6 +46,7 @@ from reconbot.tools.httpx import find_live_urls
 from reconbot.tools.subfinder import find_subdomains
 from reconbot.tools.waybackurls import find_urls as find_wayback_urls
 from reconbot.utils.normalize import safe_filename
+from reconbot.workspaces import WorkspacePaths, ensure_workspace, resolve_workspace
 
 REQUIRED_EXTERNAL_TOOLS = (
     "subfinder",
@@ -75,28 +76,48 @@ def run_workflow(
     config_path: Path,
     verbose: bool,
     run_name: str = "",
+    workspace_path: Path | None = None,
 ) -> ReconReport:
     """Run the recon orchestration workflow."""
     config = load_config(config_path)
     logging_section = get_section(config, "logging")
     output_section = get_section(config, "output")
     tool_settings = _load_tool_settings(get_section(config, "tools"))
+    workspace = _prepare_workspace(workspace_path)
     log_file = get_path(logging_section, "file", Path("logs/reconbot.log"))
-    processed_dir = get_path(output_section, "processed_dir", Path("data/processed"))
-    reports_dir = get_path(output_section, "reports_dir", Path("reports"))
-    json_exports_dir = get_path(output_section, "json_exports_dir", Path("reports/json"))
+    processed_dir = (
+        workspace.processed_dir
+        if workspace is not None
+        else get_path(output_section, "processed_dir", Path("data/processed"))
+    )
+    reports_dir = (
+        workspace.reports_dir
+        if workspace is not None
+        else get_path(output_section, "reports_dir", Path("reports"))
+    )
+    screenshots_root = (
+        workspace.screenshots_dir
+        if workspace is not None
+        else get_path(output_section, "screenshots_dir", reports_dir / "screenshots")
+    )
+    json_exports_dir = (
+        workspace.json_exports_dir
+        if workspace is not None
+        else get_path(output_section, "json_exports_dir", Path("reports/json"))
+    )
+    database_path = workspace.database_path if workspace is not None else HISTORY_DATABASE_PATH
     write_json = get_bool(output_section, "write_json", True)
     logger = setup_logging(verbose=verbose, log_file=log_file)
 
     target = ReconTarget(domain=domain, config_path=config_path)
     report = ReconReport(target=target)
 
-    _print_startup_banner(target.domain, config_path, run_name)
+    _print_startup_banner(target.domain, config_path, run_name, workspace)
     _print_tool_settings(tool_settings)
     logger.info("Starting recon workflow for %s", target.domain)
     logger.debug("Loaded configuration from %s", target.config_path)
-    logger.info("Initializing run history database at %s", HISTORY_DATABASE_PATH)
-    initialize_database(HISTORY_DATABASE_PATH)
+    logger.info("Initializing run history database at %s", database_path)
+    initialize_database(database_path)
     logger.info("Checking external tool availability")
     validate_required_tools(_enabled_binaries(tool_settings))
 
@@ -141,7 +162,7 @@ def run_workflow(
     _write_lines(technologies_path, _format_technology_lines(technology_fingerprints))
 
     screenshot_settings = tool_settings["screenshots"]
-    screenshots_dir = reports_dir / "screenshots" / safe_filename(target.domain)
+    screenshots_dir = screenshots_root / safe_filename(target.domain)
     if screenshot_settings.enabled:
         _print_stage("Screenshot capture")
         logger.info("Running screenshot capture")
@@ -176,19 +197,19 @@ def run_workflow(
     )
     previous_subdomains = get_previous_subdomains(
         target=target.domain,
-        database_path=HISTORY_DATABASE_PATH,
+        database_path=database_path,
     )
     previous_live_urls = get_previous_live_urls(
         target=target.domain,
-        database_path=HISTORY_DATABASE_PATH,
+        database_path=database_path,
     )
     previous_technologies = get_previous_technologies(
         target=target.domain,
-        database_path=HISTORY_DATABASE_PATH,
+        database_path=database_path,
     )
     previous_screenshots = get_previous_screenshots(
         target=target.domain,
-        database_path=HISTORY_DATABASE_PATH,
+        database_path=database_path,
     )
     current_technologies = sorted(technology_summary)
     diff_items = {
@@ -230,20 +251,20 @@ def run_workflow(
         subdomain_count=len(subdomains),
         live_url_count=len(live_urls),
         url_count=len(historical_urls),
-        database_path=HISTORY_DATABASE_PATH,
+        database_path=database_path,
     )
-    record_subdomains(run_id=run_id, subdomains=subdomains, database_path=HISTORY_DATABASE_PATH)
-    record_live_urls(run_id=run_id, urls=live_urls, database_path=HISTORY_DATABASE_PATH)
+    record_subdomains(run_id=run_id, subdomains=subdomains, database_path=database_path)
+    record_live_urls(run_id=run_id, urls=live_urls, database_path=database_path)
     record_technologies(
         run_id=run_id,
         technologies=technology_fingerprints,
-        database_path=HISTORY_DATABASE_PATH,
+        database_path=database_path,
     )
     record_screenshots(
         run_id=run_id,
         screenshots=screenshots,
         captured_at=report.finished_at,
-        database_path=HISTORY_DATABASE_PATH,
+        database_path=database_path,
     )
     output_files = {
         "subdomains": subdomains_path,
@@ -267,6 +288,7 @@ def run_workflow(
         prioritized_assets,
         _source_counts(subdomain_sources),
         _source_counts(historical_url_sources),
+        workspace.root if workspace is not None else None,
     )
     json_export_path = json_exports_dir / f"{safe_filename(target.domain)}.json"
     if write_json:
@@ -287,6 +309,7 @@ def run_workflow(
             prioritized_assets=prioritized_assets,
             subdomain_sources=_source_counts(subdomain_sources),
             historical_url_sources=_source_counts(historical_url_sources),
+            workspace_path=workspace.root if workspace is not None else None,
         )
         write_json_export(json_export, json_export_path)
         logger.info("Wrote JSON export to %s", json_export_path)
@@ -332,6 +355,14 @@ def _load_one_tool_settings(config: Config, tool_name: str) -> ToolSettings:
 def _enabled_binaries(tool_settings: dict[str, ToolSettings]) -> list[str]:
     """Return binaries for enabled external tools."""
     return [settings.binary for settings in tool_settings.values() if settings.enabled]
+
+
+def _prepare_workspace(workspace_path: Path | None) -> WorkspacePaths | None:
+    """Resolve and create an optional workspace."""
+    resolved = resolve_workspace(workspace_path)
+    if resolved is None:
+        return None
+    return ensure_workspace(resolved)
 
 
 def _discover_subdomains(
@@ -400,13 +431,20 @@ def _source_counts(sources: dict[str, list[str]]) -> dict[str, int]:
     return {source: len(values) for source, values in sorted(sources.items())}
 
 
-def _print_startup_banner(domain: str, config_path: Path, run_name: str) -> None:
+def _print_startup_banner(
+    domain: str,
+    config_path: Path,
+    run_name: str,
+    workspace: WorkspacePaths | None,
+) -> None:
     """Print a concise startup banner."""
     print("Reconbot")
     print(f"Target: {domain}")
     if run_name:
         print(f"Run name: {run_name}")
     print(f"Config: {config_path}")
+    if workspace is not None:
+        print(f"Workspace: {workspace.root}")
 
 
 def _print_tool_settings(tool_settings: dict[str, ToolSettings]) -> None:
@@ -487,6 +525,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             config_path=args.config,
             verbose=args.verbose,
             run_name=args.run_name,
+            workspace_path=args.workspace,
         )
     except FileNotFoundError:
         print(f"Error: config file not found: {args.config}", file=sys.stderr)

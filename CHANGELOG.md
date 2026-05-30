@@ -15,6 +15,9 @@ Reconbot uses simple semantic versioning:
 - Expanded installation and onboarding documentation with the full supported
   external tool list, feature-to-tool mapping, verification commands, first-run
   steps, workspace usage, and troubleshooting guidance.
+- Added optional workspace support for separating application code from
+  engagement data, including workspace artifact paths, report metadata, JSON
+  metadata, and workspace-specific SQLite run history.
 
 ## [0.1.0] - Initial MVP
 

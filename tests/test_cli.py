@@ -18,6 +18,8 @@ def test_parse_args_accepts_domain_config_verbose_and_run_name(tmp_path: Path) -
             "--verbose",
             "--run-name",
             "daily",
+            "--workspace",
+            str(tmp_path / "workspace"),
         ]
     )
 
@@ -25,6 +27,7 @@ def test_parse_args_accepts_domain_config_verbose_and_run_name(tmp_path: Path) -
     assert args.config == config_path
     assert args.verbose is True
     assert args.run_name == "daily"
+    assert args.workspace == tmp_path / "workspace"
 
 
 def test_parse_args_uses_default_config() -> None:
@@ -33,6 +36,7 @@ def test_parse_args_uses_default_config() -> None:
     assert args.config == Path("configs/default.yaml")
     assert args.verbose is False
     assert args.run_name == ""
+    assert args.workspace is None
 
 
 def test_parse_args_rejects_invalid_domain() -> None:

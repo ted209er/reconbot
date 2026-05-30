@@ -30,6 +30,7 @@ def build_json_export(
     prioritized_assets: list[PrioritizedAsset],
     subdomain_sources: Mapping[str, int],
     historical_url_sources: Mapping[str, int],
+    workspace_path: Path | None = None,
 ) -> dict[str, Any]:
     """Build a deterministic JSON-serializable export."""
     screenshot_paths = {url: str(path) for url, path in sorted(screenshots.items())}
@@ -38,6 +39,7 @@ def build_json_export(
         "run_name": run_name,
         "started_at": report.started_at.isoformat(),
         "completed_at": report.finished_at.isoformat() if report.finished_at else None,
+        "workspace": str(workspace_path) if workspace_path is not None else None,
         "report_path": str(report_path),
         "output_paths": _stringify_paths(output_files),
         "counts": {

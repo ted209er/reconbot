@@ -150,8 +150,7 @@ target.
 
 ## Running From A Workspace
 
-Use a separate workspace directory when you want target-specific output outside
-the Git checkout:
+Use `--workspace` when you want target-specific output outside the Git checkout:
 
 ```text
 ~/Recon/company-a
@@ -160,17 +159,16 @@ the Git checkout:
 Example:
 
 ```bash
-mkdir -p ~/Recon/company-a
-cd ~/Recon/company-a
-/home/user/Repos/reconbot/.venv/bin/reconbot \
+reconbot \
   --domain example.com \
-  --config /home/user/Repos/reconbot/configs/default.yaml \
+  --workspace ~/Recon/company-a \
   --run-name first-run
 ```
 
-Output paths in `configs/default.yaml` are relative. When you run from
-`~/Recon/company-a`, Reconbot writes to `~/Recon/company-a/data`,
-`~/Recon/company-a/reports`, and `~/Recon/company-a/logs`.
+Reconbot creates the workspace if it does not exist. Workspace runs write
+processed data to `~/Recon/company-a/data/processed`, reports and JSON exports
+to `~/Recon/company-a/reports`, screenshots to `~/Recon/company-a/screenshots`,
+and SQLite run history to `~/Recon/company-a/data/reconbot.db`.
 
 ## Troubleshooting
 
