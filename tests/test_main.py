@@ -80,7 +80,7 @@ def test_run_workflow_calls_wrappers_and_writes_outputs(
     monkeypatch.setattr(main, "fingerprint_urls", fake_fingerprint_urls)
     monkeypatch.setattr(main, "find_historical_urls", fake_find_urls)
 
-    report = main.run_workflow("example.com", config_path, verbose=False)
+    report = main.run_workflow("example.com", config_path, verbose=False, run_name="daily")
 
     assert calls == [
         ("subfinder", "example.com", "custom-subfinder", 10.0),
@@ -111,6 +111,7 @@ def test_run_workflow_calls_wrappers_and_writes_outputs(
     history = list_recent_runs(database_path=main.HISTORY_DATABASE_PATH)
     assert len(history) == 1
     assert history[0].target == "example.com"
+    assert history[0].run_name == "daily"
     assert history[0].subdomain_count == 2
     assert history[0].live_url_count == 2
     assert history[0].url_count == 2
@@ -306,7 +307,12 @@ def test_main_prints_missing_binary_errors(
     monkeypatch: MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    def fake_run_workflow(domain: str, config_path: Path, verbose: bool) -> None:
+    def fake_run_workflow(
+        domain: str,
+        config_path: Path,
+        verbose: bool,
+        run_name: str = "",
+    ) -> None:
         raise MissingExternalToolsError("Missing required external tool(s): subfinder.")
 
     monkeypatch.setattr(main, "run_workflow", fake_run_workflow)

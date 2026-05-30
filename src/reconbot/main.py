@@ -48,7 +48,12 @@ class ToolSettings:
     timeout: float
 
 
-def run_workflow(domain: str, config_path: Path, verbose: bool) -> ReconReport:
+def run_workflow(
+    domain: str,
+    config_path: Path,
+    verbose: bool,
+    run_name: str = "",
+) -> ReconReport:
     """Run the recon orchestration workflow."""
     config = load_config(config_path)
     logging_section = get_section(config, "logging")
@@ -62,7 +67,7 @@ def run_workflow(domain: str, config_path: Path, verbose: bool) -> ReconReport:
     target = ReconTarget(domain=domain, config_path=config_path)
     report = ReconReport(target=target)
 
-    _print_startup_banner(target.domain, config_path)
+    _print_startup_banner(target.domain, config_path, run_name)
     _print_tool_settings(tool_settings)
     logger.info("Starting recon workflow for %s", target.domain)
     logger.debug("Loaded configuration from %s", target.config_path)
@@ -176,6 +181,7 @@ def run_workflow(domain: str, config_path: Path, verbose: bool) -> ReconReport:
         raise RuntimeError("report completion timestamp was not set")
     run_id = record_run(
         target=target.domain,
+        run_name=run_name,
         started_at=report.started_at,
         completed_at=report.finished_at,
         subdomain_count=len(subdomains),
@@ -203,6 +209,7 @@ def run_workflow(domain: str, config_path: Path, verbose: bool) -> ReconReport:
         diff_items,
         technology_summary,
         technology_diff,
+        run_name,
     )
     logger.info("Wrote markdown report to %s", report_path)
     logger.info("Recon workflow complete for %s", target.domain)
@@ -239,10 +246,12 @@ def _enabled_binaries(tool_settings: dict[str, ToolSettings]) -> list[str]:
     return [settings.binary for settings in tool_settings.values() if settings.enabled]
 
 
-def _print_startup_banner(domain: str, config_path: Path) -> None:
+def _print_startup_banner(domain: str, config_path: Path, run_name: str) -> None:
     """Print a concise startup banner."""
     print("Reconbot")
     print(f"Target: {domain}")
+    if run_name:
+        print(f"Run name: {run_name}")
     print(f"Config: {config_path}")
 
 
@@ -323,6 +332,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             domain=args.domain,
             config_path=args.config,
             verbose=args.verbose,
+            run_name=args.run_name,
         )
     except FileNotFoundError:
         print(f"Error: config file not found: {args.config}", file=sys.stderr)
