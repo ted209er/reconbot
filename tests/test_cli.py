@@ -47,3 +47,10 @@ def test_parse_args_rejects_invalid_domain() -> None:
 def test_parse_args_rejects_missing_config() -> None:
     with pytest.raises(SystemExit):
         parse_args(["--domain", "example.com", "--config", "missing.yaml"])
+
+
+def test_parse_args_accepts_doctor_workspace(tmp_path: Path) -> None:
+    args = parse_args(["doctor", "--workspace", str(tmp_path / "workspace")])
+
+    assert args.command == "doctor"
+    assert args.workspace == tmp_path / "workspace"

@@ -140,6 +140,7 @@ pip install -e ".[dev]"
 make validate
 
 reconbot --help
+reconbot doctor
 reconbot --domain example.com
 ```
 
@@ -149,6 +150,9 @@ screenshot metadata, and changes compared with the previous run for the same
 target.
 When `--config` is omitted, Reconbot uses the packaged default config installed
 with the application.
+
+`reconbot doctor` checks Python, packaged config loading, SQLite, and external
+tool availability without contacting targets or running recon.
 
 ## Running From A Workspace
 
@@ -171,6 +175,12 @@ Reconbot creates the workspace if it does not exist. Workspace runs write
 processed data to `~/Recon/company-a/data/processed`, reports and JSON exports
 to `~/Recon/company-a/reports`, screenshots to `~/Recon/company-a/screenshots`,
 and SQLite run history to `~/Recon/company-a/data/reconbot.db`.
+
+Check an existing workspace layout with:
+
+```bash
+reconbot doctor --workspace ~/Recon/company-a
+```
 
 ## Troubleshooting
 

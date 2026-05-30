@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import re
+import sys
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -12,6 +13,13 @@ DOMAIN_PATTERN = re.compile(r"^(?!-)(?:[a-zA-Z0-9-]{1,63}\.)+[a-zA-Z]{2,63}$")
 
 def build_parser() -> argparse.ArgumentParser:
     """Build the Reconbot command-line parser."""
+    if _is_doctor_command():
+        return build_doctor_parser()
+    return build_run_parser()
+
+
+def build_run_parser() -> argparse.ArgumentParser:
+    """Build the normal recon workflow parser."""
     parser = argparse.ArgumentParser(
         prog="reconbot",
         description="Run authorized reconnaissance workflow placeholders.",
@@ -51,9 +59,36 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def build_doctor_parser() -> argparse.ArgumentParser:
+    """Build the doctor command parser."""
+    parser = argparse.ArgumentParser(
+        prog="reconbot doctor",
+        description="Check Reconbot environment health without running recon.",
+    )
+    parser.set_defaults(command="doctor")
+    parser.add_argument(
+        "--workspace",
+        type=_workspace_path,
+        default=None,
+        metavar="PATH",
+        help="Optional engagement workspace to verify.",
+    )
+    return parser
+
+
 def parse_args(args: Sequence[str] | None = None) -> argparse.Namespace:
     """Parse command-line arguments."""
-    return build_parser().parse_args(args)
+    argv = list(args) if args is not None else sys.argv[1:]
+    if argv and argv[0] == "doctor":
+        return build_doctor_parser().parse_args(argv[1:])
+    parsed = build_run_parser().parse_args(argv)
+    parsed.command = "run"
+    return parsed
+
+
+def _is_doctor_command() -> bool:
+    """Return true when process argv is invoking the doctor command."""
+    return len(sys.argv) > 1 and sys.argv[1] == "doctor"
 
 
 def _domain(value: str) -> str:

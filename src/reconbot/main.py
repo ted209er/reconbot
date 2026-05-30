@@ -12,6 +12,7 @@ from urllib.parse import urlparse
 from reconbot.cli import parse_args
 from reconbot.config import Config, get_bool, get_float, get_path, get_section, get_str, load_config
 from reconbot.config_loader import get_default_config_path, load_default_config
+from reconbot.doctor import HealthStatus, format_doctor_output, overall_status, run_doctor
 from reconbot.exporting import build_json_export, write_json_export
 from reconbot.fingerprinting import fingerprint_urls, summarize_technologies
 from reconbot.history import (
@@ -541,6 +542,15 @@ def _hosts_from_urls(urls: list[str]) -> list[str]:
 def main(argv: Sequence[str] | None = None) -> int:
     """Parse arguments and run the application."""
     args = parse_args(argv)
+    if args.command == "doctor":
+        results = run_doctor(workspace_path=args.workspace)
+        print(format_doctor_output(results))
+        status = overall_status(results)
+        if status == HealthStatus.HEALTHY:
+            return 0
+        if status == HealthStatus.WARNINGS:
+            return 1
+        return 2
 
     try:
         run_workflow(

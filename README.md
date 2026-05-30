@@ -124,12 +124,27 @@ pip install -e ".[dev]"
 make validate
 
 reconbot --help
+reconbot doctor
 reconbot --domain example.com
 ```
 
 Use only domains you own or have explicit written authorization to test. If
 `reconbot --help` works but a real run fails immediately, check the missing
 binary message and run the matching command in "Verify Your Environment".
+
+## Doctor
+
+Run the environment health check before your first recon run:
+
+```bash
+reconbot doctor
+reconbot doctor --workspace ~/Recon/hackerone/example
+```
+
+The doctor command checks Python 3.11+, packaged default config loading, SQLite,
+optional workspace structure, and external tool availability. It does not
+contact targets and does not run recon. Results end with `HEALTHY`, `WARNINGS`,
+or `ERROR`.
 
 ## Running From A Workspace
 
@@ -172,6 +187,7 @@ When `--config` is omitted, Reconbot uses its packaged default config.
 reconbot --domain example.com --config configs/default.yaml --verbose
 reconbot --domain example.com --config configs/default.yaml --run-name daily
 reconbot --domain example.com --workspace ~/Recon/hackerone/example
+reconbot doctor --workspace ~/Recon/hackerone/example
 ```
 
 Startup output shows the target, config path, enabled tools and configured
