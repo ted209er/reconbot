@@ -77,6 +77,7 @@ commands.
 
 ```bash
 reconbot --domain example.com --config configs/default.yaml --verbose
+reconbot --domain example.com --config configs/default.yaml --run-name daily
 ```
 
 Startup output shows the target, config path, enabled tools and configured
@@ -108,6 +109,19 @@ httpx -silent -json -tech-detect -u https://example.com
 
 Reconbot parses the JSON output for technology names such as web servers, CDNs,
 CMSs, frameworks, and language indicators.
+
+## Scheduling
+
+Reconbot stays scheduler-agnostic. Use cron, systemd timers, or Windows Task
+Scheduler for WSL to run the normal CLI command:
+
+```bash
+cd /home/user/Repos/reconbot
+.venv/bin/reconbot --domain example.com --config configs/default.yaml --run-name daily
+```
+
+See [docs/scheduling.md](docs/scheduling.md) for cron, systemd timer, and WSL
+examples.
 
 Tool settings live in `configs/default.yaml`. Each tool supports a small set of
 settings:

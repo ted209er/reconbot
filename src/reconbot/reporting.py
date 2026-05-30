@@ -15,6 +15,7 @@ def write_markdown_report(
     diff_items: Mapping[str, list[str]] | None = None,
     technology_summary: Mapping[str, int] | None = None,
     technology_diff: Mapping[str, list[str]] | None = None,
+    run_name: str = "",
 ) -> Path:
     """Write a plain markdown report to disk."""
     report_path.parent.mkdir(parents=True, exist_ok=True)
@@ -24,6 +25,7 @@ def write_markdown_report(
         diff_items,
         technology_summary,
         technology_diff,
+        run_name,
     )
     report_path.write_text(markdown, encoding="utf-8")
     return report_path
@@ -35,13 +37,15 @@ def build_markdown_report(
     diff_items: Mapping[str, list[str]] | None = None,
     technology_summary: Mapping[str, int] | None = None,
     technology_diff: Mapping[str, list[str]] | None = None,
+    run_name: str = "",
 ) -> str:
     """Build a plain markdown report for a recon run."""
     lines = [
         "# Reconbot Report",
         "",
         f"- Target domain: `{report.target.domain}`",
-        f"- Run timestamp: `{report.started_at.isoformat()}`",
+        f"- Run name: `{run_name or 'default'}`",
+        f"- Execution timestamp: `{report.started_at.isoformat()}`",
         f"- Subdomain count: {_result_count(report, 'subfinder')}",
         f"- Live host count: {_result_count(report, 'httpx')}",
         f"- URL count: {_result_count(report, 'gau')}",

@@ -36,6 +36,12 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Enable verbose console logging.",
     )
+    parser.add_argument(
+        "--run-name",
+        default="",
+        metavar="NAME",
+        help="Optional label stored with this run, for example daily or weekly-baseline.",
+    )
     return parser
 
 

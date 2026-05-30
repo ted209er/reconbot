@@ -16,6 +16,7 @@ class RunHistoryEntry:
 
     id: int
     target: str
+    run_name: str
     started_at: str
     completed_at: str
     subdomain_count: int
@@ -32,6 +33,7 @@ def initialize_database(database_path: Path = DEFAULT_DATABASE_PATH) -> Path:
             CREATE TABLE IF NOT EXISTS runs (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 target TEXT NOT NULL,
+                run_name TEXT NOT NULL DEFAULT '',
                 started_at TEXT NOT NULL,
                 completed_at TEXT NOT NULL,
                 subdomain_count INTEGER NOT NULL,
@@ -39,6 +41,12 @@ def initialize_database(database_path: Path = DEFAULT_DATABASE_PATH) -> Path:
                 url_count INTEGER NOT NULL
             )
             """
+        )
+        _ensure_column(
+            connection,
+            table="runs",
+            column="run_name",
+            definition="TEXT NOT NULL DEFAULT ''",
         )
         connection.execute(
             """
@@ -74,6 +82,7 @@ def initialize_database(database_path: Path = DEFAULT_DATABASE_PATH) -> Path:
 def record_run(
     *,
     target: str,
+    run_name: str = "",
     started_at: datetime,
     completed_at: datetime,
     subdomain_count: int,
@@ -88,16 +97,18 @@ def record_run(
             """
             INSERT INTO runs (
                 target,
+                run_name,
                 started_at,
                 completed_at,
                 subdomain_count,
                 live_url_count,
                 url_count
             )
-            VALUES (?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 target,
+                run_name,
                 started_at.isoformat(),
                 completed_at.isoformat(),
                 subdomain_count,
@@ -123,6 +134,7 @@ def list_recent_runs(
             SELECT
                 id,
                 target,
+                run_name,
                 started_at,
                 completed_at,
                 subdomain_count,
@@ -139,14 +151,31 @@ def list_recent_runs(
         RunHistoryEntry(
             id=int(row[0]),
             target=str(row[1]),
-            started_at=str(row[2]),
-            completed_at=str(row[3]),
-            subdomain_count=int(row[4]),
-            live_url_count=int(row[5]),
-            url_count=int(row[6]),
+            run_name=str(row[2]),
+            started_at=str(row[3]),
+            completed_at=str(row[4]),
+            subdomain_count=int(row[5]),
+            live_url_count=int(row[6]),
+            url_count=int(row[7]),
         )
         for row in rows
     ]
+
+
+def _ensure_column(
+    connection: sqlite3.Connection,
+    *,
+    table: str,
+    column: str,
+    definition: str,
+) -> None:
+    """Add a missing column for lightweight schema evolution."""
+    existing_columns = {
+        str(row[1])
+        for row in connection.execute(f"PRAGMA table_info({table})").fetchall()
+    }
+    if column not in existing_columns:
+        connection.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
 
 
 def record_subdomains(

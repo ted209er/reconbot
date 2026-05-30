@@ -29,7 +29,8 @@ def test_build_markdown_report_includes_summary_and_output_paths() -> None:
 
     assert "# Reconbot Report" in markdown
     assert "- Target domain: `example.com`" in markdown
-    assert "- Run timestamp: `" in markdown
+    assert "- Run name: `default`" in markdown
+    assert "- Execution timestamp: `" in markdown
     assert "- Subdomain count: 1" in markdown
     assert "- Live host count: 1" in markdown
     assert "- URL count: 2" in markdown
@@ -118,3 +119,21 @@ def test_build_markdown_report_includes_technology_summary_and_changes() -> None
     assert "+ Keycloak" in markdown
     assert "- Drupal" in markdown
     assert "- Technologies: `technologies.txt`" in markdown
+
+
+def test_build_markdown_report_includes_run_name() -> None:
+    report = ReconReport(
+        target=ReconTarget(domain="example.com", config_path=Path("config.yaml"))
+    )
+
+    markdown = build_markdown_report(
+        report,
+        {
+            "subdomains": Path("subdomains.txt"),
+            "live_hosts": Path("live_urls.txt"),
+            "historical_urls": Path("historical_urls.txt"),
+        },
+        run_name="daily",
+    )
+
+    assert "- Run name: `daily`" in markdown
