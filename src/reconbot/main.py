@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import sys
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlparse
@@ -37,14 +37,25 @@ from reconbot.models import ReconReport, ReconTarget, ToolResult
 from reconbot.prioritization import prioritize_assets
 from reconbot.reporting import write_markdown_report
 from reconbot.screenshots import capture_screenshots
+from reconbot.tools.assetfinder import find_subdomains as find_assetfinder_subdomains
+from reconbot.tools.crtsh import find_subdomains as find_crtsh_subdomains
 from reconbot.tools.detection import MissingExternalToolsError, validate_required_tools
 from reconbot.tools.gau import find_urls as find_historical_urls
 from reconbot.tools.httpx import find_live_urls
 from reconbot.tools.subfinder import find_subdomains
+from reconbot.tools.waybackurls import find_urls as find_wayback_urls
 from reconbot.utils.normalize import safe_filename
 
-REQUIRED_EXTERNAL_TOOLS = ("subfinder", "httpx", "gau", "screenshots")
-DEFAULT_TOOL_BINARIES = {"screenshots": "gowitness"}
+REQUIRED_EXTERNAL_TOOLS = (
+    "subfinder",
+    "assetfinder",
+    "crtsh",
+    "httpx",
+    "gau",
+    "waybackurls",
+    "screenshots",
+)
+DEFAULT_TOOL_BINARIES = {"crtsh": "curl", "screenshots": "gowitness"}
 DEFAULT_TOOL_TIMEOUTS = {"screenshots": 300.0}
 HISTORY_DATABASE_PATH = DEFAULT_DATABASE_PATH
 
@@ -88,18 +99,9 @@ def run_workflow(
     logger.info("Checking external tool availability")
     validate_required_tools(_enabled_binaries(tool_settings))
 
-    subfinder_settings = tool_settings["subfinder"]
-    if subfinder_settings.enabled:
-        _print_stage("Subdomain discovery")
-        logger.info("Running subdomain discovery")
-        subdomains = find_subdomains(
-            target.domain,
-            binary=subfinder_settings.binary,
-            timeout=subfinder_settings.timeout,
-        )
-    else:
-        logger.info("Skipping subdomain discovery because subfinder is disabled")
-        subdomains = []
+    _print_stage("Subdomain discovery")
+    subdomain_sources = _discover_subdomains(target.domain, tool_settings, logger)
+    subdomains = _dedupe_sorted(subdomain_sources.values())
     _record_result(report, "subfinder", subdomains)
     subdomains_path = processed_dir / "subdomains.txt"
     _write_lines(subdomains_path, subdomains)
@@ -150,19 +152,14 @@ def run_workflow(
         logger.info("Skipping screenshot capture because screenshots are disabled")
         screenshots = {}
 
-    gau_settings = tool_settings["gau"]
-    if gau_settings.enabled:
-        _print_stage("Historical URL collection")
-        logger.info("Running historical URL collection")
-        historical_targets: str | list[str] = _hosts_from_urls(live_urls) or target.domain
-        historical_urls = find_historical_urls(
-            historical_targets,
-            binary=gau_settings.binary,
-            timeout=gau_settings.timeout,
-        )
-    else:
-        logger.info("Skipping historical URL collection because gau is disabled")
-        historical_urls = []
+    _print_stage("Historical URL collection")
+    historical_targets: str | list[str] = _hosts_from_urls(live_urls) or target.domain
+    historical_url_sources = _discover_historical_urls(
+        historical_targets,
+        tool_settings,
+        logger,
+    )
+    historical_urls = _dedupe_sorted(historical_url_sources.values())
     _record_result(report, "gau", historical_urls)
     historical_urls_path = processed_dir / "historical_urls.txt"
     _write_lines(historical_urls_path, historical_urls)
@@ -264,6 +261,8 @@ def run_workflow(
         screenshots,
         screenshot_diff,
         prioritized_assets,
+        _source_counts(subdomain_sources),
+        _source_counts(historical_url_sources),
     )
     json_export_path = json_exports_dir / f"{safe_filename(target.domain)}.json"
     if write_json:
@@ -280,6 +279,8 @@ def run_workflow(
             screenshots=screenshots,
             screenshot_diff=screenshot_diff,
             prioritized_assets=prioritized_assets,
+            subdomain_sources=_source_counts(subdomain_sources),
+            historical_url_sources=_source_counts(historical_url_sources),
         )
         write_json_export(json_export, json_export_path)
         logger.info("Wrote JSON export to %s", json_export_path)
@@ -325,6 +326,72 @@ def _load_one_tool_settings(config: Config, tool_name: str) -> ToolSettings:
 def _enabled_binaries(tool_settings: dict[str, ToolSettings]) -> list[str]:
     """Return binaries for enabled external tools."""
     return [settings.binary for settings in tool_settings.values() if settings.enabled]
+
+
+def _discover_subdomains(
+    domain: str,
+    tool_settings: dict[str, ToolSettings],
+    logger: logging.Logger,
+) -> dict[str, list[str]]:
+    """Run enabled passive subdomain sources."""
+    results: dict[str, list[str]] = {}
+    source_functions = {
+        "subfinder": find_subdomains,
+        "assetfinder": find_assetfinder_subdomains,
+        "crtsh": find_crtsh_subdomains,
+    }
+    for source_name, source_function in source_functions.items():
+        settings = tool_settings[source_name]
+        if not settings.enabled:
+            logger.info("Skipping %s because it is disabled", source_name)
+            results[source_name] = []
+            continue
+        logger.info("Running %s subdomain discovery", source_name)
+        results[source_name] = source_function(
+            domain,
+            binary=settings.binary,
+            timeout=settings.timeout,
+        )
+    return results
+
+
+def _discover_historical_urls(
+    targets: str | list[str],
+    tool_settings: dict[str, ToolSettings],
+    logger: logging.Logger,
+) -> dict[str, list[str]]:
+    """Run enabled passive historical URL sources."""
+    results: dict[str, list[str]] = {}
+    source_functions = {
+        "gau": find_historical_urls,
+        "waybackurls": find_wayback_urls,
+    }
+    for source_name, source_function in source_functions.items():
+        settings = tool_settings[source_name]
+        if not settings.enabled:
+            logger.info("Skipping %s because it is disabled", source_name)
+            results[source_name] = []
+            continue
+        logger.info("Running %s historical URL collection", source_name)
+        results[source_name] = source_function(
+            targets,
+            binary=settings.binary,
+            timeout=settings.timeout,
+        )
+    return results
+
+
+def _dedupe_sorted(values: Iterable[list[str]]) -> list[str]:
+    """Merge nested string lists into sorted unique values."""
+    merged: set[str] = set()
+    for value_list in values:
+        merged.update(value_list)
+    return sorted(merged)
+
+
+def _source_counts(sources: dict[str, list[str]]) -> dict[str, int]:
+    """Return deterministic per-source result counts."""
+    return {source: len(values) for source, values in sorted(sources.items())}
 
 
 def _print_startup_banner(domain: str, config_path: Path, run_name: str) -> None:

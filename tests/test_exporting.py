@@ -40,6 +40,8 @@ def test_build_json_export_includes_expected_structure() -> None:
                 reasons=["Screenshot available", "New live URL"],
             )
         ],
+        subdomain_sources={"subfinder": 2, "assetfinder": 1, "crtsh": 3},
+        historical_url_sources={"gau": 1, "waybackurls": 2},
     )
 
     assert export["target"] == "example.com"
@@ -67,6 +69,10 @@ def test_build_json_export_includes_expected_structure() -> None:
             "reasons": ["New live URL", "Screenshot available"],
         }
     ]
+    assert export["discovery_sources"] == {
+        "subdomains": {"assetfinder": 1, "crtsh": 3, "subfinder": 2},
+        "historical_urls": {"gau": 1, "waybackurls": 2},
+    }
 
 
 def test_build_json_export_sorts_change_lists() -> None:
@@ -87,6 +93,8 @@ def test_build_json_export_sorts_change_lists() -> None:
         screenshots={},
         screenshot_diff={"added_screenshots": ["https://b.example.com", "https://a.example.com"]},
         prioritized_assets=[],
+        subdomain_sources={},
+        historical_url_sources={},
     )
 
     assert export["technology_changes"] == {"added_technologies": ["Apache", "React"]}

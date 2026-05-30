@@ -42,12 +42,21 @@ def test_run_workflow_calls_wrappers_and_writes_outputs(
             "  subfinder:\n"
             "    binary: custom-subfinder\n"
             "    timeout: 10\n"
+            "  assetfinder:\n"
+            "    binary: custom-assetfinder\n"
+            "    timeout: 11\n"
+            "  crtsh:\n"
+            "    binary: custom-curl\n"
+            "    timeout: 12\n"
             "  httpx:\n"
             "    binary: custom-httpx\n"
             "    timeout: 20\n"
             "  gau:\n"
             "    binary: custom-gau\n"
             "    timeout: 30\n"
+            "  waybackurls:\n"
+            "    binary: custom-waybackurls\n"
+            "    timeout: 31\n"
             "  screenshots:\n"
             "    binary: custom-gowitness\n"
             "    timeout: 40\n"
@@ -64,6 +73,19 @@ def test_run_workflow_calls_wrappers_and_writes_outputs(
     def fake_find_subdomains(domain: str, *, binary: str, timeout: float) -> list[str]:
         calls.append(("subfinder", domain, binary, timeout))
         return ["a.example.com", "b.example.com"]
+
+    def fake_find_assetfinder_subdomains(
+        domain: str,
+        *,
+        binary: str,
+        timeout: float,
+    ) -> list[str]:
+        calls.append(("assetfinder", domain, binary, timeout))
+        return ["c.example.com"]
+
+    def fake_find_crtsh_subdomains(domain: str, *, binary: str, timeout: float) -> list[str]:
+        calls.append(("crtsh", domain, binary, timeout))
+        return ["b.example.com", "d.example.com"]
 
     def fake_find_live_urls(subdomains: list[str], *, binary: str, timeout: float) -> list[str]:
         calls.append(("httpx", subdomains, binary, timeout))
@@ -82,6 +104,10 @@ def test_run_workflow_calls_wrappers_and_writes_outputs(
         calls.append(("gau", targets, binary, timeout))
         return ["https://a.example.com/login", "https://b.example.com/archive"]
 
+    def fake_find_wayback_urls(targets: object, *, binary: str, timeout: float) -> list[str]:
+        calls.append(("waybackurls", targets, binary, timeout))
+        return ["https://c.example.com/old"]
+
     def fake_capture_screenshots(
         urls: list[str],
         *,
@@ -94,16 +120,26 @@ def test_run_workflow_calls_wrappers_and_writes_outputs(
 
     monkeypatch.setattr(main, "validate_required_tools", fake_validate_required_tools)
     monkeypatch.setattr(main, "find_subdomains", fake_find_subdomains)
+    monkeypatch.setattr(main, "find_assetfinder_subdomains", fake_find_assetfinder_subdomains)
+    monkeypatch.setattr(main, "find_crtsh_subdomains", fake_find_crtsh_subdomains)
     monkeypatch.setattr(main, "find_live_urls", fake_find_live_urls)
     monkeypatch.setattr(main, "fingerprint_urls", fake_fingerprint_urls)
     monkeypatch.setattr(main, "capture_screenshots", fake_capture_screenshots)
     monkeypatch.setattr(main, "find_historical_urls", fake_find_urls)
+    monkeypatch.setattr(main, "find_wayback_urls", fake_find_wayback_urls)
 
     report = main.run_workflow("example.com", config_path, verbose=False, run_name="daily")
 
     assert calls == [
         ("subfinder", "example.com", "custom-subfinder", 10.0),
-        ("httpx", ["a.example.com", "b.example.com"], "custom-httpx", 20.0),
+        ("assetfinder", "example.com", "custom-assetfinder", 11.0),
+        ("crtsh", "example.com", "custom-curl", 12.0),
+        (
+            "httpx",
+            ["a.example.com", "b.example.com", "c.example.com", "d.example.com"],
+            "custom-httpx",
+            20.0,
+        ),
         ("fingerprinting", ["https://a.example.com", "http://b.example.com"], "custom-httpx", 20.0),
         (
             "screenshots",
@@ -112,29 +148,42 @@ def test_run_workflow_calls_wrappers_and_writes_outputs(
             40.0,
         ),
         ("gau", ["a.example.com", "b.example.com"], "custom-gau", 30.0),
+        ("waybackurls", ["a.example.com", "b.example.com"], "custom-waybackurls", 31.0),
     ]
     assert validation_calls == [
-        ["custom-subfinder", "custom-httpx", "custom-gau", "custom-gowitness"]
+        [
+            "custom-subfinder",
+            "custom-assetfinder",
+            "custom-curl",
+            "custom-httpx",
+            "custom-gau",
+            "custom-waybackurls",
+            "custom-gowitness",
+        ]
     ]
     assert report.target.domain == "example.com"
     assert [result.name for result in report.results] == ["subfinder", "httpx", "gau"]
     assert (processed_dir / "subdomains.txt").read_text(encoding="utf-8") == (
-        "a.example.com\nb.example.com\n"
+        "a.example.com\nb.example.com\nc.example.com\nd.example.com\n"
     )
     assert (processed_dir / "live_urls.txt").read_text(encoding="utf-8") == (
         "https://a.example.com\nhttp://b.example.com\n"
     )
     assert (processed_dir / "historical_urls.txt").read_text(encoding="utf-8") == (
-        "https://a.example.com/login\nhttps://b.example.com/archive\n"
+        "https://a.example.com/login\nhttps://b.example.com/archive\nhttps://c.example.com/old\n"
     )
     assert (processed_dir / "technologies.txt").read_text(encoding="utf-8") == (
         "http://b.example.com\tWordPress\nhttps://a.example.com\tNginx\n"
     )
     report_text = (reports_dir / "example.com.md").read_text(encoding="utf-8")
     assert "- Target domain: `example.com`" in report_text
-    assert "- Subdomain count: 2" in report_text
+    assert "- Subdomain count: 4" in report_text
+    assert "- assetfinder: 1" in report_text
+    assert "- crtsh: 2" in report_text
+    assert "- subfinder: 2" in report_text
+    assert "- waybackurls: 1" in report_text
     assert "- Live host count: 2" in report_text
-    assert "- URL count: 2" in report_text
+    assert "- URL count: 3" in report_text
     assert "- Screenshots captured: 1" in report_text
     assert "- New screenshot targets: 1" in report_text
     assert "+ https://a.example.com" in report_text
@@ -145,9 +194,9 @@ def test_run_workflow_calls_wrappers_and_writes_outputs(
     assert len(history) == 1
     assert history[0].target == "example.com"
     assert history[0].run_name == "daily"
-    assert history[0].subdomain_count == 2
+    assert history[0].subdomain_count == 4
     assert history[0].live_url_count == 2
-    assert history[0].url_count == 2
+    assert history[0].url_count == 3
     previous_technologies = get_previous_technologies(
         target="example.com",
         database_path=main.HISTORY_DATABASE_PATH,
@@ -169,7 +218,13 @@ def test_run_workflow_calls_wrappers_and_writes_outputs(
     assert json_export["target"] == "example.com"
     assert json_export["run_name"] == "daily"
     assert json_export["counts"]["screenshots"] == 1
-    assert json_export["subdomains"] == ["a.example.com", "b.example.com"]
+    assert json_export["subdomains"] == [
+        "a.example.com",
+        "b.example.com",
+        "c.example.com",
+        "d.example.com",
+    ]
+    assert json_export["discovery_sources"]["subdomains"]["crtsh"] == 2
     assert json_export["screenshot_changes"]["added_screenshots"] == ["https://a.example.com"]
     assert json_export["prioritized_assets"][0]["url"] == "https://a.example.com"
     assert json_export["prioritized_assets"][0]["score"] == 15
@@ -190,9 +245,15 @@ def test_run_workflow_prints_startup_progress_and_summary(
             "tools:\n"
             "  subfinder:\n"
             "    enabled: false\n"
+            "  assetfinder:\n"
+            "    enabled: false\n"
+            "  crtsh:\n"
+            "    enabled: false\n"
             "  httpx:\n"
             "    enabled: false\n"
             "  gau:\n"
+            "    enabled: false\n"
+            "  waybackurls:\n"
             "    enabled: false\n"
             "  screenshots:\n"
             "    enabled: false\n"
@@ -223,9 +284,15 @@ def test_run_workflow_skips_disabled_tools(tmp_path: Path, monkeypatch: MonkeyPa
             "tools:\n"
             "  subfinder:\n"
             "    enabled: false\n"
+            "  assetfinder:\n"
+            "    enabled: false\n"
+            "  crtsh:\n"
+            "    enabled: false\n"
             "  httpx:\n"
             "    enabled: false\n"
             "  gau:\n"
+            "    enabled: false\n"
+            "  waybackurls:\n"
             "    enabled: false\n"
             "  screenshots:\n"
             "    enabled: false\n"
@@ -242,10 +309,13 @@ def test_run_workflow_skips_disabled_tools(tmp_path: Path, monkeypatch: MonkeyPa
 
     monkeypatch.setattr(main, "validate_required_tools", fake_validate_required_tools)
     monkeypatch.setattr(main, "find_subdomains", fail_if_called)
+    monkeypatch.setattr(main, "find_assetfinder_subdomains", fail_if_called)
+    monkeypatch.setattr(main, "find_crtsh_subdomains", fail_if_called)
     monkeypatch.setattr(main, "find_live_urls", fail_if_called)
     monkeypatch.setattr(main, "fingerprint_urls", fail_if_called)
     monkeypatch.setattr(main, "capture_screenshots", fail_if_called)
     monkeypatch.setattr(main, "find_historical_urls", fail_if_called)
+    monkeypatch.setattr(main, "find_wayback_urls", fail_if_called)
 
     report = main.run_workflow("example.com", config_path, verbose=False)
 
@@ -274,9 +344,15 @@ def test_run_workflow_skips_json_export_when_disabled(
             "tools:\n"
             "  subfinder:\n"
             "    enabled: false\n"
+            "  assetfinder:\n"
+            "    enabled: false\n"
+            "  crtsh:\n"
+            "    enabled: false\n"
             "  httpx:\n"
             "    enabled: false\n"
             "  gau:\n"
+            "    enabled: false\n"
+            "  waybackurls:\n"
             "    enabled: false\n"
             "  screenshots:\n"
             "    enabled: false\n"
@@ -304,9 +380,15 @@ def test_run_workflow_reports_diff_from_previous_run(
             "tools:\n"
             "  subfinder:\n"
             "    enabled: true\n"
+            "  assetfinder:\n"
+            "    enabled: false\n"
+            "  crtsh:\n"
+            "    enabled: false\n"
             "  httpx:\n"
             "    enabled: true\n"
             "  gau:\n"
+            "    enabled: false\n"
+            "  waybackurls:\n"
             "    enabled: false\n"
             "  screenshots:\n"
             "    enabled: false\n"
@@ -391,7 +473,9 @@ def test_run_workflow_validates_required_tools(tmp_path: Path, monkeypatch: Monk
     with pytest.raises(RuntimeError, match="missing tools"):
         main.run_workflow("example.com", config_path, verbose=False)
 
-    assert calls == [["subfinder", "httpx", "gau", "gowitness"]]
+    assert calls == [
+        ["subfinder", "assetfinder", "curl", "httpx", "gau", "waybackurls", "gowitness"]
+    ]
 
 
 def test_main_prints_missing_binary_errors(

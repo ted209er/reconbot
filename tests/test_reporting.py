@@ -205,3 +205,29 @@ def test_build_markdown_report_includes_high_interest_assets() -> None:
     assert "   - New subdomain" in markdown
     assert "   - Login/admin/auth keyword" in markdown
     assert "https://plain.example.com" not in markdown
+
+
+def test_build_markdown_report_includes_discovery_sources_summary() -> None:
+    report = ReconReport(
+        target=ReconTarget(domain="example.com", config_path=Path("config.yaml"))
+    )
+
+    markdown = build_markdown_report(
+        report,
+        {
+            "subdomains": Path("subdomains.txt"),
+            "live_hosts": Path("live_urls.txt"),
+            "historical_urls": Path("historical_urls.txt"),
+        },
+        subdomain_sources={"subfinder": 85, "assetfinder": 63, "crtsh": 97},
+        historical_url_sources={"gau": 425, "waybackurls": 312},
+    )
+
+    assert "## Discovery Sources Summary" in markdown
+    assert "Subdomains:" in markdown
+    assert "- assetfinder: 63" in markdown
+    assert "- crtsh: 97" in markdown
+    assert "- subfinder: 85" in markdown
+    assert "Historical URLs:" in markdown
+    assert "- gau: 425" in markdown
+    assert "- waybackurls: 312" in markdown
