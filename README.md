@@ -100,6 +100,8 @@ Screenshots for live URLs are stored under
 Reconbot records screenshot metadata in SQLite and reports new or removed
 screenshot targets by URL. It does not compare pixels, hash image contents, run
 OCR, or perform visual regression testing.
+Structured JSON exports are written to `reports/json/<safe-target-name>.json`
+for automation, scripting, and future integrations.
 
 Tool wrappers expect their external binaries to be installed separately and
 available on `PATH`. The current wrappers expect ProjectDiscovery `subfinder`
@@ -138,6 +140,11 @@ Tool settings live in `configs/default.yaml`. Each tool supports a small set of
 settings:
 
 ```yaml
+output:
+  processed_dir: data/processed
+  reports_dir: reports
+  json_exports_dir: reports/json
+  write_json: true
 tools:
   subfinder:
     enabled: true
@@ -151,6 +158,7 @@ tools:
 
 Use `enabled: false` to skip a tool, `binary` to point at a custom executable
 path or name, and `timeout` to set the per-tool subprocess timeout in seconds.
+Use `output.write_json: false` to skip JSON export generation.
 
 Reconbot checks for required external binaries before running the workflow. If a
 tool is missing, install it from its upstream project and confirm the binary is

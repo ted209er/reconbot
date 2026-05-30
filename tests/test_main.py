@@ -1,3 +1,4 @@
+import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -33,7 +34,10 @@ def test_run_workflow_calls_wrappers_and_writes_outputs(
     config_path.write_text(
         (
             f"logging:\n  file: {log_file}\n"
-            f"output:\n  processed_dir: {processed_dir}\n  reports_dir: {reports_dir}\n"
+            f"output:\n"
+            f"  processed_dir: {processed_dir}\n"
+            f"  reports_dir: {reports_dir}\n"
+            f"  json_exports_dir: {reports_dir / 'json'}\n"
             "tools:\n"
             "  subfinder:\n"
             "    binary: custom-subfinder\n"
@@ -158,6 +162,12 @@ def test_run_workflow_calls_wrappers_and_writes_outputs(
             reports_dir / "screenshots" / "example-com" / "https-a-example-com.png"
         )
     }
+    json_export = json.loads((reports_dir / "json" / "example-com.json").read_text())
+    assert json_export["target"] == "example.com"
+    assert json_export["run_name"] == "daily"
+    assert json_export["counts"]["screenshots"] == 1
+    assert json_export["subdomains"] == ["a.example.com", "b.example.com"]
+    assert json_export["screenshot_changes"]["added_screenshots"] == ["https://a.example.com"]
 
 
 def test_run_workflow_prints_startup_progress_and_summary(
@@ -240,6 +250,40 @@ def test_run_workflow_skips_disabled_tools(tmp_path: Path, monkeypatch: MonkeyPa
     assert (processed_dir / "live_urls.txt").read_text(encoding="utf-8") == ""
     assert (processed_dir / "historical_urls.txt").read_text(encoding="utf-8") == ""
     assert (processed_dir / "technologies.txt").read_text(encoding="utf-8") == ""
+
+
+def test_run_workflow_skips_json_export_when_disabled(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    config_path = tmp_path / "config.yaml"
+    reports_dir = tmp_path / "reports"
+    config_path.write_text(
+        (
+            f"logging:\n  file: {tmp_path / 'reconbot.log'}\n"
+            f"output:\n"
+            f"  processed_dir: {tmp_path / 'processed'}\n"
+            f"  reports_dir: {reports_dir}\n"
+            f"  json_exports_dir: {reports_dir / 'json'}\n"
+            "  write_json: false\n"
+            "tools:\n"
+            "  subfinder:\n"
+            "    enabled: false\n"
+            "  httpx:\n"
+            "    enabled: false\n"
+            "  gau:\n"
+            "    enabled: false\n"
+            "  screenshots:\n"
+            "    enabled: false\n"
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(main, "validate_required_tools", lambda tool_names: None)
+
+    main.run_workflow("example.com", config_path, verbose=False)
+
+    assert not (reports_dir / "json" / "example-com.json").exists()
 
 
 def test_run_workflow_reports_diff_from_previous_run(

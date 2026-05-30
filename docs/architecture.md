@@ -13,6 +13,7 @@ Reconbot uses a small `src` layout so application code is importable as the
 - `src/reconbot/models.py` owns shared dataclasses used across orchestration,
   wrappers, and reporting.
 - `src/reconbot/main.py` owns top-level orchestration for the CLI entry point.
+- `src/reconbot/exporting.py` owns structured JSON export generation.
 - `src/reconbot/fingerprinting.py` owns passive technology fingerprinting.
 - `src/reconbot/screenshots.py` owns passive screenshot capture.
 - `src/reconbot/history.py` owns the lightweight SQLite run history.
@@ -34,6 +35,18 @@ Logging setup should be centralized so modules only need `logging.getLogger`.
 
 Models should stay simple and serializable. Shared state should move through
 dataclasses such as `ReconTarget`, `ToolResult`, and `ReconReport`.
+
+## Export Layer
+
+`src/reconbot/exporting.py` builds deterministic JSON exports for automation and
+future integrations. Exports are written to
+`reports/json/<safe-target-name>.json` after markdown report generation when
+`output.write_json` is enabled.
+
+The export layer uses only the standard library. It serializes run metadata,
+output paths, counts, discoveries, technology summaries and changes, screenshot
+paths and changes, and the markdown report path. It does not add APIs, web
+services, dashboards, or external serialization libraries.
 
 ## Fingerprinting Layer
 

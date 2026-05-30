@@ -11,6 +11,7 @@ from urllib.parse import urlparse
 
 from reconbot.cli import parse_args
 from reconbot.config import Config, get_bool, get_float, get_path, get_section, get_str, load_config
+from reconbot.exporting import build_json_export, write_json_export
 from reconbot.fingerprinting import fingerprint_urls, summarize_technologies
 from reconbot.history import (
     DEFAULT_DATABASE_PATH,
@@ -70,6 +71,8 @@ def run_workflow(
     log_file = get_path(logging_section, "file", Path("logs/reconbot.log"))
     processed_dir = get_path(output_section, "processed_dir", Path("data/processed"))
     reports_dir = get_path(output_section, "reports_dir", Path("reports"))
+    json_exports_dir = get_path(output_section, "json_exports_dir", Path("reports/json"))
+    write_json = get_bool(output_section, "write_json", True)
     logger = setup_logging(verbose=verbose, log_file=log_file)
 
     target = ReconTarget(domain=domain, config_path=config_path)
@@ -233,16 +236,17 @@ def run_workflow(
         captured_at=report.finished_at,
         database_path=HISTORY_DATABASE_PATH,
     )
+    output_files = {
+        "subdomains": subdomains_path,
+        "live_hosts": live_urls_path,
+        "historical_urls": historical_urls_path,
+        "technologies": technologies_path,
+        "screenshots": screenshots_dir,
+    }
     report_path = reports_dir / f"{target.domain}.md"
     write_markdown_report(
         report,
-        {
-            "subdomains": subdomains_path,
-            "live_hosts": live_urls_path,
-            "historical_urls": historical_urls_path,
-            "technologies": technologies_path,
-            "screenshots": screenshots_dir,
-        },
+        output_files,
         report_path,
         diff_items,
         technology_summary,
@@ -251,6 +255,25 @@ def run_workflow(
         screenshots,
         screenshot_diff,
     )
+    json_export_path = json_exports_dir / f"{safe_filename(target.domain)}.json"
+    if write_json:
+        json_export = build_json_export(
+            report=report,
+            run_name=run_name,
+            output_files=output_files,
+            report_path=report_path,
+            subdomains=subdomains,
+            live_urls=live_urls,
+            historical_urls=historical_urls,
+            technology_summary=technology_summary,
+            technology_diff=technology_diff,
+            screenshots=screenshots,
+            screenshot_diff=screenshot_diff,
+        )
+        write_json_export(json_export, json_export_path)
+        logger.info("Wrote JSON export to %s", json_export_path)
+    else:
+        logger.info("Skipping JSON export because output.write_json is false")
     logger.info("Wrote markdown report to %s", report_path)
     logger.info("Recon workflow complete for %s", target.domain)
     _print_completion(
@@ -261,6 +284,7 @@ def run_workflow(
             historical_urls_path,
             technologies_path,
             screenshots_dir,
+            json_export_path,
         ],
         subdomain_count=len(subdomains),
         live_url_count=len(live_urls),
