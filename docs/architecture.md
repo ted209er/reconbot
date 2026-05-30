@@ -10,6 +10,7 @@ Reconbot uses a small `src` layout so application code is importable as the
 - `src/reconbot/config.py` owns YAML loading and typed access helpers.
 - `src/reconbot/config_loader.py` owns packaged default configuration discovery
   and loading.
+- `src/reconbot/doctor.py` owns local environment health checks.
 - `src/reconbot/logging_config.py` owns logging setup for console and file
   output.
 - `src/reconbot/models.py` owns shared dataclasses used across orchestration,
@@ -85,6 +86,21 @@ reconbot --domain example.com
 `--config` is omitted, orchestration loads the packaged default config. When
 `--config PATH` is supplied, orchestration uses that custom file and preserves
 the previous override behavior.
+
+## Doctor Command
+
+`src/reconbot/doctor.py` implements `reconbot doctor` as a local-only health
+check. It verifies Python version support, packaged default config loading,
+SQLite availability, optional workspace structure, and supported external tool
+visibility through `shutil.which()`.
+
+Doctor output is human-readable and ends with `HEALTHY`, `WARNINGS`, or
+`ERROR`. Missing recon tools are warnings because users may intentionally run
+with some tools disabled in custom configs. Runtime, packaged config, SQLite,
+and invalid workspace path failures are errors.
+
+The doctor command must not contact targets, invoke recon tools, perform recon,
+or create dashboards, remote checks, or environment-specific configuration.
 
 ## Export Layer
 
