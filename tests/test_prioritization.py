@@ -35,6 +35,20 @@ def test_score_asset_adds_api_keyword() -> None:
     assert asset.reasons == ["API keyword"]
 
 
+def test_score_asset_adds_identity_category_bonus() -> None:
+    asset = score_asset(
+        "https://identity.example.com",
+        new_subdomains=[],
+        new_live_urls=[],
+        new_technologies=[],
+        technologies=["Keycloak"],
+        screenshot_urls=[],
+    )
+
+    assert asset.score == 3
+    assert asset.reasons == ["Identity technology"]
+
+
 def test_prioritize_assets_sorts_by_score_then_url() -> None:
     assets = prioritize_assets(
         ["https://z.example.com", "https://admin.example.com", "https://api.example.com"],

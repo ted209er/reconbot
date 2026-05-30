@@ -9,6 +9,7 @@ from typing import Any
 
 from reconbot.models import ReconReport
 from reconbot.prioritization import PrioritizedAsset
+from reconbot.technology_categories import CATEGORY_ORDER
 
 
 def build_json_export(
@@ -21,6 +22,8 @@ def build_json_export(
     live_urls: list[str],
     historical_urls: list[str],
     technology_summary: Mapping[str, int],
+    technology_categories: Mapping[str, Mapping[str, int]],
+    technology_category_summary: Mapping[str, int],
     technology_diff: Mapping[str, list[str]],
     screenshots: Mapping[str, Path],
     screenshot_diff: Mapping[str, list[str]],
@@ -48,6 +51,8 @@ def build_json_export(
         "live_urls": sorted(live_urls),
         "historical_urls": sorted(historical_urls),
         "technology_summary": dict(sorted(technology_summary.items())),
+        "technology_categories": _nested_mapping(technology_categories),
+        "technology_category_summary": dict(technology_category_summary),
         "technology_changes": _sorted_change_lists(technology_diff),
         "screenshot_paths": screenshot_paths,
         "screenshot_changes": _sorted_change_lists(screenshot_diff),
@@ -89,3 +94,15 @@ def _prioritized_assets(assets: list[PrioritizedAsset]) -> list[dict[str, Any]]:
         }
         for asset in assets
     ]
+
+
+def _nested_mapping(values: Mapping[str, Mapping[str, int]]) -> dict[str, dict[str, int]]:
+    """Return nested mappings with deterministic ordering."""
+    nested: dict[str, dict[str, int]] = {}
+    for outer_key in CATEGORY_ORDER:
+        if outer_key in values:
+            nested[outer_key] = dict(sorted(values[outer_key].items()))
+    for outer_key, inner_values in sorted(values.items()):
+        if outer_key not in nested:
+            nested[outer_key] = dict(sorted(inner_values.items()))
+    return nested

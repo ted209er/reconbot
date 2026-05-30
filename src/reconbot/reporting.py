@@ -7,6 +7,7 @@ from pathlib import Path
 
 from reconbot.models import ReconReport
 from reconbot.prioritization import PrioritizedAsset
+from reconbot.technology_categories import CATEGORY_ORDER
 
 
 def write_markdown_report(
@@ -15,6 +16,7 @@ def write_markdown_report(
     report_path: Path,
     diff_items: Mapping[str, list[str]] | None = None,
     technology_summary: Mapping[str, int] | None = None,
+    technology_categories: Mapping[str, Mapping[str, int]] | None = None,
     technology_diff: Mapping[str, list[str]] | None = None,
     run_name: str = "",
     screenshots: Mapping[str, Path] | None = None,
@@ -30,6 +32,7 @@ def write_markdown_report(
         output_files,
         diff_items,
         technology_summary,
+        technology_categories,
         technology_diff,
         run_name,
         screenshots,
@@ -47,6 +50,7 @@ def build_markdown_report(
     output_files: Mapping[str, Path],
     diff_items: Mapping[str, list[str]] | None = None,
     technology_summary: Mapping[str, int] | None = None,
+    technology_categories: Mapping[str, Mapping[str, int]] | None = None,
     technology_diff: Mapping[str, list[str]] | None = None,
     run_name: str = "",
     screenshots: Mapping[str, Path] | None = None,
@@ -70,7 +74,11 @@ def build_markdown_report(
     if diff_items is not None:
         lines.extend(_build_diff_section(diff_items))
     if technology_summary is not None:
-        lines.extend(_build_technology_section(technology_summary, technology_diff))
+        lines.extend(_build_technology_summary_section(technology_summary))
+    if technology_categories is not None:
+        lines.extend(_build_technology_categories_section(technology_categories))
+    if technology_diff is not None:
+        lines.extend(_build_technology_changes_section(technology_diff))
     if screenshots is not None:
         lines.extend(_build_screenshot_section(screenshots, screenshot_diff))
     if prioritized_assets is not None:
@@ -126,10 +134,7 @@ def _build_output_file_section(output_files: Mapping[str, Path]) -> list[str]:
     return lines
 
 
-def _build_technology_section(
-    technology_summary: Mapping[str, int],
-    technology_diff: Mapping[str, list[str]] | None,
-) -> list[str]:
+def _build_technology_summary_section(technology_summary: Mapping[str, int]) -> list[str]:
     """Build markdown lines for technology fingerprints."""
     lines = ["## Technology Summary", "", "Technologies:", ""]
     if technology_summary:
@@ -138,21 +143,55 @@ def _build_technology_section(
     else:
         lines.append("- None detected")
     lines.append("")
-    if technology_diff is not None:
-        added = technology_diff.get("added_technologies", [])
-        removed = technology_diff.get("removed_technologies", [])
-        lines.extend(
-            [
-                "Technology Changes:",
-                "",
-                f"- Added technologies: {len(added)}",
-                f"- Removed technologies: {len(removed)}",
-                "",
-            ]
-        )
-        lines.extend(_format_changed_items("+", added))
-        lines.extend(_format_changed_items("-", removed))
+    return lines
+
+
+def _build_technology_categories_section(
+    technology_categories: Mapping[str, Mapping[str, int]],
+) -> list[str]:
+    """Build markdown lines for categorized technology fingerprints."""
+    lines = ["## Technology Categories", ""]
+    if not technology_categories:
+        lines.extend(["- None detected", ""])
+        return lines
+
+    for category in CATEGORY_ORDER:
+        technologies = technology_categories.get(category)
+        if not technologies:
+            continue
+        lines.append(f"{category}:")
         lines.append("")
+        for technology, count in sorted(technologies.items()):
+            lines.append(f"- {technology} ({count})")
+        lines.append("")
+    extra_categories = sorted(
+        category
+        for category in technology_categories
+        if category not in CATEGORY_ORDER and technology_categories[category]
+    )
+    for category in extra_categories:
+        lines.append(f"{category}:")
+        lines.append("")
+        for technology, count in sorted(technology_categories[category].items()):
+            lines.append(f"- {technology} ({count})")
+        lines.append("")
+    return lines
+
+
+def _build_technology_changes_section(technology_diff: Mapping[str, list[str]]) -> list[str]:
+    """Build markdown lines for technology changes."""
+    added = technology_diff.get("added_technologies", [])
+    removed = technology_diff.get("removed_technologies", [])
+    lines = [
+        "## Technology Changes",
+        "",
+        f"- Added technologies: {len(added)}",
+        f"- Removed technologies: {len(removed)}",
+        "",
+    ]
+    lines.extend(_format_changed_items("+", added))
+    lines.extend(_format_changed_items("-", removed))
+    lines.append("")
     return lines
 
 

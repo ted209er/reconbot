@@ -95,6 +95,9 @@ Reports include a small comparison against the most recent previous run for the
 same target, including added and removed subdomains and live URLs.
 Reports also include a technology summary and technology changes detected across
 live URLs.
+Those technologies are grouped into simple categories in the report and JSON
+export, including Infrastructure, Framework, CMS, Identity, Language, and
+Unknown.
 Screenshots for live URLs are stored under
 `reports/screenshots/<safe-target-name>/` and linked from markdown reports.
 Reconbot records screenshot metadata in SQLite and reports new or removed
@@ -105,6 +108,7 @@ for automation, scripting, and future integrations.
 Reconbot also builds a rule-based high-interest asset list to help review the
 most relevant live URLs first. Scores are explainable and deterministic:
 new subdomains and new live URLs add 5 points each, new technologies add 4,
+Identity technologies add 3,
 admin/login/auth URL keywords add 3, API keywords add 2, and screenshots add 1.
 
 Tool wrappers expect their external binaries to be installed separately and
