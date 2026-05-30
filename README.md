@@ -177,6 +177,9 @@ pre-commit run --all-files
 
 ## MVP Roadmap
 
+See [docs/roadmap.md](docs/roadmap.md) for the current lightweight project
+roadmap.
+
 1. Keep the application foundation stable: CLI, config loading, logging, models,
    subprocess execution, and tests.
 2. Define a consistent tool wrapper interface that returns `ToolResult`.
