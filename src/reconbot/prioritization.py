@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from urllib.parse import urlparse
 
+from reconbot.technology_categories import categorize_technology
+
 
 @dataclass(frozen=True, slots=True)
 class PrioritizedAsset:
@@ -39,6 +41,13 @@ def score_asset(
     if set(technologies) & set(new_technologies):
         score += 4
         reasons.append("New technology")
+    categories = {categorize_technology(technology) for technology in technologies}
+    if "Identity" in categories:
+        score += 3
+        reasons.append("Identity technology")
+    if "Admin Platform" in categories:
+        score += 3
+        reasons.append("Admin platform technology")
     if any(keyword in lowered_url for keyword in ("admin", "login", "auth")):
         score += 3
         reasons.append("Login/admin/auth keyword")

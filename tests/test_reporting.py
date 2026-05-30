@@ -103,6 +103,10 @@ def test_build_markdown_report_includes_technology_summary_and_changes() -> None
             "technologies": Path("technologies.txt"),
         },
         technology_summary={"Cloudflare": 12, "Nginx": 8, "WordPress": 3},
+        technology_categories={
+            "Infrastructure": {"Cloudflare": 12, "Nginx": 8},
+            "CMS": {"WordPress": 3},
+        },
         technology_diff={
             "added_technologies": ["FastAPI", "Keycloak"],
             "removed_technologies": ["Drupal"],
@@ -113,7 +117,10 @@ def test_build_markdown_report_includes_technology_summary_and_changes() -> None
     assert "- Cloudflare (12)" in markdown
     assert "- Nginx (8)" in markdown
     assert "- WordPress (3)" in markdown
-    assert "Technology Changes:" in markdown
+    assert "## Technology Categories" in markdown
+    assert "Infrastructure:" in markdown
+    assert "CMS:" in markdown
+    assert "## Technology Changes" in markdown
     assert "- Added technologies: 2" in markdown
     assert "- Removed technologies: 1" in markdown
     assert "+ FastAPI" in markdown

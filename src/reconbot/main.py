@@ -37,6 +37,7 @@ from reconbot.models import ReconReport, ReconTarget, ToolResult
 from reconbot.prioritization import prioritize_assets
 from reconbot.reporting import write_markdown_report
 from reconbot.screenshots import capture_screenshots
+from reconbot.technology_categories import categorize_technologies, summarize_categories
 from reconbot.tools.assetfinder import find_subdomains as find_assetfinder_subdomains
 from reconbot.tools.crtsh import find_subdomains as find_crtsh_subdomains
 from reconbot.tools.detection import MissingExternalToolsError, validate_required_tools
@@ -134,6 +135,8 @@ def run_workflow(
         logger.info("Skipping technology fingerprinting because httpx is disabled")
         technology_fingerprints = {}
     technology_summary = summarize_technologies(technology_fingerprints)
+    technology_categories = categorize_technologies(technology_summary)
+    technology_category_summary = summarize_categories(technology_categories)
     technologies_path = processed_dir / "technologies.txt"
     _write_lines(technologies_path, _format_technology_lines(technology_fingerprints))
 
@@ -256,6 +259,7 @@ def run_workflow(
         report_path,
         diff_items,
         technology_summary,
+        technology_categories,
         technology_diff,
         run_name,
         screenshots,
@@ -275,6 +279,8 @@ def run_workflow(
             live_urls=live_urls,
             historical_urls=historical_urls,
             technology_summary=technology_summary,
+            technology_categories=technology_categories,
+            technology_category_summary=technology_category_summary,
             technology_diff=technology_diff,
             screenshots=screenshots,
             screenshot_diff=screenshot_diff,

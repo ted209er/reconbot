@@ -24,6 +24,8 @@ def test_build_json_export_includes_expected_structure() -> None:
         live_urls=["https://b.example.com", "https://a.example.com"],
         historical_urls=["https://example.com/login"],
         technology_summary={"Nginx": 2, "Cloudflare": 1},
+        technology_categories={"Infrastructure": {"Cloudflare": 1, "Nginx": 2}},
+        technology_category_summary={"Infrastructure": 3},
         technology_diff={"added_technologies": ["Nginx"], "removed_technologies": []},
         screenshots={
             "https://b.example.com": Path("reports/screenshots/example-com/b.png"),
@@ -58,6 +60,8 @@ def test_build_json_export_includes_expected_structure() -> None:
     assert export["subdomains"] == ["a.example.com", "b.example.com"]
     assert export["live_urls"] == ["https://a.example.com", "https://b.example.com"]
     assert export["technology_summary"] == {"Cloudflare": 1, "Nginx": 2}
+    assert export["technology_categories"] == {"Infrastructure": {"Cloudflare": 1, "Nginx": 2}}
+    assert export["technology_category_summary"] == {"Infrastructure": 3}
     assert export["screenshot_paths"] == {
         "https://a.example.com": "reports/screenshots/example-com/a.png",
         "https://b.example.com": "reports/screenshots/example-com/b.png",
@@ -89,6 +93,8 @@ def test_build_json_export_sorts_change_lists() -> None:
         live_urls=[],
         historical_urls=[],
         technology_summary={},
+        technology_categories={},
+        technology_category_summary={},
         technology_diff={"added_technologies": ["React", "Apache"]},
         screenshots={},
         screenshot_diff={"added_screenshots": ["https://b.example.com", "https://a.example.com"]},

@@ -187,6 +187,10 @@ def test_run_workflow_calls_wrappers_and_writes_outputs(
     assert "- Screenshots captured: 1" in report_text
     assert "- New screenshot targets: 1" in report_text
     assert "+ https://a.example.com" in report_text
+    assert "## Technology Categories" in report_text
+    assert "Infrastructure:" in report_text
+    assert "CMS:" in report_text
+    assert "- WordPress (1)" in report_text
     assert "## High Interest Assets" in report_text
     assert "1. https://a.example.com" in report_text
     assert "   - New live URL" in report_text
@@ -218,6 +222,10 @@ def test_run_workflow_calls_wrappers_and_writes_outputs(
     assert json_export["target"] == "example.com"
     assert json_export["run_name"] == "daily"
     assert json_export["counts"]["screenshots"] == 1
+    assert json_export["technology_categories"] == {
+        "CMS": {"WordPress": 1},
+        "Infrastructure": {"Nginx": 1},
+    }
     assert json_export["subdomains"] == [
         "a.example.com",
         "b.example.com",
@@ -450,6 +458,8 @@ def test_run_workflow_reports_diff_from_previous_run(
     assert "+ https://beta.example.com" in report_text
     assert "- https://old.example.com" in report_text
     assert "- FastAPI (1)" in report_text
+    assert "## Technology Categories" in report_text
+    assert "Framework:" in report_text
     assert "- Added technologies: 1" in report_text
     assert "- Removed technologies: 1" in report_text
     assert "+ FastAPI" in report_text

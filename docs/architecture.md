@@ -15,6 +15,8 @@ Reconbot uses a small `src` layout so application code is importable as the
 - `src/reconbot/main.py` owns top-level orchestration for the CLI entry point.
 - `src/reconbot/exporting.py` owns structured JSON export generation.
 - `src/reconbot/fingerprinting.py` owns passive technology fingerprinting.
+- `src/reconbot/technology_categories.py` groups fingerprinted technologies into
+  simple report and scoring categories.
 - `src/reconbot/prioritization.py` owns rule-based asset prioritization.
 - `src/reconbot/screenshots.py` owns passive screenshot capture.
 - `src/reconbot/history.py` owns the lightweight SQLite run history.
@@ -46,9 +48,9 @@ future integrations. Exports are written to
 
 The export layer uses only the standard library. It serializes run metadata,
 output paths, counts, discoveries, passive source counts, technology summaries
-and changes, screenshot paths and changes, prioritized assets, and the markdown
-report path. It does not add APIs, web services, dashboards, or external
-serialization libraries.
+and changes, technology categories and category totals, screenshot paths and
+changes, prioritized assets, and the markdown report path. It does not add
+APIs, web services, dashboards, or external serialization libraries.
 
 ## Prioritization Layer
 
@@ -71,6 +73,18 @@ The fingerprinting layer records indicators such as web servers, CDNs, reverse
 proxies, frameworks, CMSs, and language hints. It does not perform vulnerability
 scanning, exploit checks, brute force, credential enumeration, browser
 automation, or active security testing.
+
+## Technology Categorization
+
+`src/reconbot/technology_categories.py` groups fingerprinted technologies into
+small deterministic categories for reports, JSON exports, and prioritization.
+The current categories are Infrastructure, Framework, CMS, Identity, Language,
+and Unknown. Categorization is rule-based and intentionally simple so the
+mapping stays easy to read and extend.
+
+Priority scoring uses the category layer as one more explainable signal: Identity
+technologies add a small bonus, while the rest of the scoring rules remain
+unchanged and deterministic.
 
 ## Screenshot Layer
 
