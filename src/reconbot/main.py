@@ -11,16 +11,21 @@ from urllib.parse import urlparse
 
 from reconbot.cli import parse_args
 from reconbot.config import Config, get_bool, get_float, get_path, get_section, get_str, load_config
+from reconbot.fingerprinting import fingerprint_urls, summarize_technologies
 from reconbot.history import (
     DEFAULT_DATABASE_PATH,
     calculate_added_items,
+    calculate_added_technologies,
     calculate_removed_items,
+    calculate_removed_technologies,
     get_previous_live_urls,
     get_previous_subdomains,
+    get_previous_technologies,
     initialize_database,
     record_live_urls,
     record_run,
     record_subdomains,
+    record_technologies,
 )
 from reconbot.logging_config import setup_logging
 from reconbot.models import ReconReport, ReconTarget, ToolResult
@@ -98,6 +103,21 @@ def run_workflow(domain: str, config_path: Path, verbose: bool) -> ReconReport:
     live_urls_path = processed_dir / "live_urls.txt"
     _write_lines(live_urls_path, live_urls)
 
+    if httpx_settings.enabled:
+        _print_stage("Technology fingerprinting")
+        logger.info("Running technology fingerprinting")
+        technology_fingerprints = fingerprint_urls(
+            live_urls,
+            binary=httpx_settings.binary,
+            timeout=httpx_settings.timeout,
+        )
+    else:
+        logger.info("Skipping technology fingerprinting because httpx is disabled")
+        technology_fingerprints = {}
+    technology_summary = summarize_technologies(technology_fingerprints)
+    technologies_path = processed_dir / "technologies.txt"
+    _write_lines(technologies_path, _format_technology_lines(technology_fingerprints))
+
     gau_settings = tool_settings["gau"]
     if gau_settings.enabled:
         _print_stage("Historical URL collection")
@@ -130,11 +150,26 @@ def run_workflow(domain: str, config_path: Path, verbose: bool) -> ReconReport:
         target=target.domain,
         database_path=HISTORY_DATABASE_PATH,
     )
+    previous_technologies = get_previous_technologies(
+        target=target.domain,
+        database_path=HISTORY_DATABASE_PATH,
+    )
+    current_technologies = sorted(technology_summary)
     diff_items = {
         "added_subdomains": calculate_added_items(subdomains, previous_subdomains),
         "removed_subdomains": calculate_removed_items(subdomains, previous_subdomains),
         "added_live_urls": calculate_added_items(live_urls, previous_live_urls),
         "removed_live_urls": calculate_removed_items(live_urls, previous_live_urls),
+    }
+    technology_diff = {
+        "added_technologies": calculate_added_technologies(
+            current_technologies,
+            previous_technologies,
+        ),
+        "removed_technologies": calculate_removed_technologies(
+            current_technologies,
+            previous_technologies,
+        ),
     }
     report.complete()
     if report.finished_at is None:
@@ -150,6 +185,11 @@ def run_workflow(domain: str, config_path: Path, verbose: bool) -> ReconReport:
     )
     record_subdomains(run_id=run_id, subdomains=subdomains, database_path=HISTORY_DATABASE_PATH)
     record_live_urls(run_id=run_id, urls=live_urls, database_path=HISTORY_DATABASE_PATH)
+    record_technologies(
+        run_id=run_id,
+        technologies=technology_fingerprints,
+        database_path=HISTORY_DATABASE_PATH,
+    )
     report_path = reports_dir / f"{target.domain}.md"
     write_markdown_report(
         report,
@@ -157,15 +197,18 @@ def run_workflow(domain: str, config_path: Path, verbose: bool) -> ReconReport:
             "subdomains": subdomains_path,
             "live_hosts": live_urls_path,
             "historical_urls": historical_urls_path,
+            "technologies": technologies_path,
         },
         report_path,
         diff_items,
+        technology_summary,
+        technology_diff,
     )
     logger.info("Wrote markdown report to %s", report_path)
     logger.info("Recon workflow complete for %s", target.domain)
     _print_completion(
         report_path=report_path,
-        output_paths=[subdomains_path, live_urls_path, historical_urls_path],
+        output_paths=[subdomains_path, live_urls_path, historical_urls_path, technologies_path],
         subdomain_count=len(subdomains),
         live_url_count=len(live_urls),
         historical_url_count=len(historical_urls),
@@ -254,6 +297,15 @@ def _write_lines(path: Path, values: list[str]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     content = "\n".join(values)
     path.write_text(f"{content}\n" if content else "", encoding="utf-8")
+
+
+def _format_technology_lines(fingerprints: dict[str, list[str]]) -> list[str]:
+    """Format technology fingerprints for processed output."""
+    return [
+        f"{url}\t{technology}"
+        for url, technologies in sorted(fingerprints.items())
+        for technology in sorted(technologies)
+    ]
 
 
 def _hosts_from_urls(urls: list[str]) -> list[str]:

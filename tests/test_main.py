@@ -5,7 +5,14 @@ import pytest
 from pytest import MonkeyPatch
 
 from reconbot import main
-from reconbot.history import list_recent_runs, record_live_urls, record_run, record_subdomains
+from reconbot.history import (
+    get_previous_technologies,
+    list_recent_runs,
+    record_live_urls,
+    record_run,
+    record_subdomains,
+    record_technologies,
+)
 from reconbot.tools.detection import MissingExternalToolsError
 
 
@@ -54,6 +61,15 @@ def test_run_workflow_calls_wrappers_and_writes_outputs(
         calls.append(("httpx", subdomains, binary, timeout))
         return ["https://a.example.com", "http://b.example.com"]
 
+    def fake_fingerprint_urls(
+        urls: list[str],
+        *,
+        binary: str,
+        timeout: float,
+    ) -> dict[str, list[str]]:
+        calls.append(("fingerprinting", urls, binary, timeout))
+        return {"https://a.example.com": ["Nginx"], "http://b.example.com": ["WordPress"]}
+
     def fake_find_urls(targets: object, *, binary: str, timeout: float) -> list[str]:
         calls.append(("gau", targets, binary, timeout))
         return ["https://a.example.com/login", "https://b.example.com/archive"]
@@ -61,6 +77,7 @@ def test_run_workflow_calls_wrappers_and_writes_outputs(
     monkeypatch.setattr(main, "validate_required_tools", fake_validate_required_tools)
     monkeypatch.setattr(main, "find_subdomains", fake_find_subdomains)
     monkeypatch.setattr(main, "find_live_urls", fake_find_live_urls)
+    monkeypatch.setattr(main, "fingerprint_urls", fake_fingerprint_urls)
     monkeypatch.setattr(main, "find_historical_urls", fake_find_urls)
 
     report = main.run_workflow("example.com", config_path, verbose=False)
@@ -68,6 +85,7 @@ def test_run_workflow_calls_wrappers_and_writes_outputs(
     assert calls == [
         ("subfinder", "example.com", "custom-subfinder", 10.0),
         ("httpx", ["a.example.com", "b.example.com"], "custom-httpx", 20.0),
+        ("fingerprinting", ["https://a.example.com", "http://b.example.com"], "custom-httpx", 20.0),
         ("gau", ["a.example.com", "b.example.com"], "custom-gau", 30.0),
     ]
     assert validation_calls == [["custom-subfinder", "custom-httpx", "custom-gau"]]
@@ -82,6 +100,9 @@ def test_run_workflow_calls_wrappers_and_writes_outputs(
     assert (processed_dir / "historical_urls.txt").read_text(encoding="utf-8") == (
         "https://a.example.com/login\nhttps://b.example.com/archive\n"
     )
+    assert (processed_dir / "technologies.txt").read_text(encoding="utf-8") == (
+        "http://b.example.com\tWordPress\nhttps://a.example.com\tNginx\n"
+    )
     report_text = (reports_dir / "example.com.md").read_text(encoding="utf-8")
     assert "- Target domain: `example.com`" in report_text
     assert "- Subdomain count: 2" in report_text
@@ -93,6 +114,14 @@ def test_run_workflow_calls_wrappers_and_writes_outputs(
     assert history[0].subdomain_count == 2
     assert history[0].live_url_count == 2
     assert history[0].url_count == 2
+    previous_technologies = get_previous_technologies(
+        target="example.com",
+        database_path=main.HISTORY_DATABASE_PATH,
+    )
+    assert previous_technologies == [
+        "Nginx",
+        "WordPress",
+    ]
 
 
 def test_run_workflow_prints_startup_progress_and_summary(
@@ -159,6 +188,7 @@ def test_run_workflow_skips_disabled_tools(tmp_path: Path, monkeypatch: MonkeyPa
     monkeypatch.setattr(main, "validate_required_tools", fake_validate_required_tools)
     monkeypatch.setattr(main, "find_subdomains", fail_if_called)
     monkeypatch.setattr(main, "find_live_urls", fail_if_called)
+    monkeypatch.setattr(main, "fingerprint_urls", fail_if_called)
     monkeypatch.setattr(main, "find_historical_urls", fail_if_called)
 
     report = main.run_workflow("example.com", config_path, verbose=False)
@@ -168,6 +198,7 @@ def test_run_workflow_skips_disabled_tools(tmp_path: Path, monkeypatch: MonkeyPa
     assert (processed_dir / "subdomains.txt").read_text(encoding="utf-8") == ""
     assert (processed_dir / "live_urls.txt").read_text(encoding="utf-8") == ""
     assert (processed_dir / "historical_urls.txt").read_text(encoding="utf-8") == ""
+    assert (processed_dir / "technologies.txt").read_text(encoding="utf-8") == ""
 
 
 def test_run_workflow_reports_diff_from_previous_run(
@@ -210,6 +241,11 @@ def test_run_workflow_reports_diff_from_previous_run(
         urls=["https://old.example.com"],
         database_path=main.HISTORY_DATABASE_PATH,
     )
+    record_technologies(
+        run_id=previous_run_id,
+        technologies={"https://old.example.com": ["Drupal"]},
+        database_path=main.HISTORY_DATABASE_PATH,
+    )
 
     monkeypatch.setattr(main, "validate_required_tools", lambda tool_names: None)
     monkeypatch.setattr(
@@ -221,6 +257,11 @@ def test_run_workflow_reports_diff_from_previous_run(
         main,
         "find_live_urls",
         lambda subdomains, *, binary, timeout: ["https://beta.example.com"],
+    )
+    monkeypatch.setattr(
+        main,
+        "fingerprint_urls",
+        lambda urls, *, binary, timeout: {"https://beta.example.com": ["FastAPI"]},
     )
 
     main.run_workflow("example.com", config_path, verbose=False)
@@ -234,6 +275,11 @@ def test_run_workflow_reports_diff_from_previous_run(
     assert "- old.example.com" in report_text
     assert "+ https://beta.example.com" in report_text
     assert "- https://old.example.com" in report_text
+    assert "- FastAPI (1)" in report_text
+    assert "- Added technologies: 1" in report_text
+    assert "- Removed technologies: 1" in report_text
+    assert "+ FastAPI" in report_text
+    assert "- Drupal" in report_text
 
 
 def test_run_workflow_validates_required_tools(tmp_path: Path, monkeypatch: MonkeyPatch) -> None:

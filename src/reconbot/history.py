@@ -58,6 +58,16 @@ def initialize_database(database_path: Path = DEFAULT_DATABASE_PATH) -> Path:
             )
             """
         )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS technologies (
+                run_id INTEGER NOT NULL,
+                url TEXT NOT NULL,
+                technology TEXT NOT NULL,
+                FOREIGN KEY (run_id) REFERENCES runs (id)
+            )
+            """
+        )
     return database_path
 
 
@@ -199,6 +209,42 @@ def get_previous_live_urls(
     )
 
 
+def record_technologies(
+    *,
+    run_id: int,
+    technologies: dict[str, list[str]],
+    database_path: Path = DEFAULT_DATABASE_PATH,
+) -> None:
+    """Record technology fingerprints for one run."""
+    initialize_database(database_path)
+    rows = [
+        (run_id, url, technology)
+        for url, values in sorted(technologies.items())
+        for technology in sorted(set(values))
+    ]
+    if not rows:
+        return
+    with sqlite3.connect(database_path) as connection:
+        connection.executemany(
+            "INSERT INTO technologies (run_id, url, technology) VALUES (?, ?, ?)",
+            rows,
+        )
+
+
+def get_previous_technologies(
+    *,
+    target: str,
+    database_path: Path = DEFAULT_DATABASE_PATH,
+) -> list[str]:
+    """Return technologies from the most recent previous run for a target."""
+    return _get_previous_items(
+        target=target,
+        table="technologies",
+        column="technology",
+        database_path=database_path,
+    )
+
+
 def calculate_added_items(current: list[str], previous: list[str]) -> list[str]:
     """Return items present now but not in the previous run."""
     return sorted(set(current) - set(previous))
@@ -207,6 +253,16 @@ def calculate_added_items(current: list[str], previous: list[str]) -> list[str]:
 def calculate_removed_items(current: list[str], previous: list[str]) -> list[str]:
     """Return items present in the previous run but missing now."""
     return sorted(set(previous) - set(current))
+
+
+def calculate_added_technologies(current: list[str], previous: list[str]) -> list[str]:
+    """Return technologies present now but not in the previous run."""
+    return calculate_added_items(current, previous)
+
+
+def calculate_removed_technologies(current: list[str], previous: list[str]) -> list[str]:
+    """Return technologies present in the previous run but missing now."""
+    return calculate_removed_items(current, previous)
 
 
 def _record_items(

@@ -85,3 +85,36 @@ def test_build_markdown_report_includes_diff_summary() -> None:
     assert "+ beta.example.com" in markdown
     assert "- old-admin.example.com" in markdown
     assert "+ https://api-v2.example.com" in markdown
+
+
+def test_build_markdown_report_includes_technology_summary_and_changes() -> None:
+    report = ReconReport(
+        target=ReconTarget(domain="example.com", config_path=Path("config.yaml"))
+    )
+
+    markdown = build_markdown_report(
+        report,
+        {
+            "subdomains": Path("subdomains.txt"),
+            "live_hosts": Path("live_urls.txt"),
+            "historical_urls": Path("historical_urls.txt"),
+            "technologies": Path("technologies.txt"),
+        },
+        technology_summary={"Cloudflare": 12, "Nginx": 8, "WordPress": 3},
+        technology_diff={
+            "added_technologies": ["FastAPI", "Keycloak"],
+            "removed_technologies": ["Drupal"],
+        },
+    )
+
+    assert "## Technology Summary" in markdown
+    assert "- Cloudflare (12)" in markdown
+    assert "- Nginx (8)" in markdown
+    assert "- WordPress (3)" in markdown
+    assert "Technology Changes:" in markdown
+    assert "- Added technologies: 2" in markdown
+    assert "- Removed technologies: 1" in markdown
+    assert "+ FastAPI" in markdown
+    assert "+ Keycloak" in markdown
+    assert "- Drupal" in markdown
+    assert "- Technologies: `technologies.txt`" in markdown

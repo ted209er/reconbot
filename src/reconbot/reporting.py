@@ -13,10 +13,18 @@ def write_markdown_report(
     output_files: Mapping[str, Path],
     report_path: Path,
     diff_items: Mapping[str, list[str]] | None = None,
+    technology_summary: Mapping[str, int] | None = None,
+    technology_diff: Mapping[str, list[str]] | None = None,
 ) -> Path:
     """Write a plain markdown report to disk."""
     report_path.parent.mkdir(parents=True, exist_ok=True)
-    markdown = build_markdown_report(report, output_files, diff_items)
+    markdown = build_markdown_report(
+        report,
+        output_files,
+        diff_items,
+        technology_summary,
+        technology_diff,
+    )
     report_path.write_text(markdown, encoding="utf-8")
     return report_path
 
@@ -25,6 +33,8 @@ def build_markdown_report(
     report: ReconReport,
     output_files: Mapping[str, Path],
     diff_items: Mapping[str, list[str]] | None = None,
+    technology_summary: Mapping[str, int] | None = None,
+    technology_diff: Mapping[str, list[str]] | None = None,
 ) -> str:
     """Build a plain markdown report for a recon run."""
     lines = [
@@ -39,16 +49,9 @@ def build_markdown_report(
     ]
     if diff_items is not None:
         lines.extend(_build_diff_section(diff_items))
-    lines.extend(
-        [
-            "## Output Files",
-            "",
-            f"- Subdomains: `{output_files['subdomains']}`",
-            f"- Live hosts: `{output_files['live_hosts']}`",
-            f"- Historical URLs: `{output_files['historical_urls']}`",
-            "",
-        ]
-    )
+    if technology_summary is not None:
+        lines.extend(_build_technology_section(technology_summary, technology_diff))
+    lines.extend(_build_output_file_section(output_files))
     return "\n".join(lines)
 
 
@@ -78,6 +81,51 @@ def _build_diff_section(diff_items: Mapping[str, list[str]]) -> list[str]:
 def _format_changed_items(prefix: str, values: list[str]) -> list[str]:
     """Format changed values as simple markdown lines."""
     return [f"{prefix} {value}" for value in values]
+
+
+def _build_output_file_section(output_files: Mapping[str, Path]) -> list[str]:
+    """Build markdown lines for generated output files."""
+    lines = [
+        "## Output Files",
+        "",
+        f"- Subdomains: `{output_files['subdomains']}`",
+        f"- Live hosts: `{output_files['live_hosts']}`",
+        f"- Historical URLs: `{output_files['historical_urls']}`",
+    ]
+    if "technologies" in output_files:
+        lines.append(f"- Technologies: `{output_files['technologies']}`")
+    lines.append("")
+    return lines
+
+
+def _build_technology_section(
+    technology_summary: Mapping[str, int],
+    technology_diff: Mapping[str, list[str]] | None,
+) -> list[str]:
+    """Build markdown lines for technology fingerprints."""
+    lines = ["## Technology Summary", "", "Technologies:", ""]
+    if technology_summary:
+        for technology, count in sorted(technology_summary.items()):
+            lines.append(f"- {technology} ({count})")
+    else:
+        lines.append("- None detected")
+    lines.append("")
+    if technology_diff is not None:
+        added = technology_diff.get("added_technologies", [])
+        removed = technology_diff.get("removed_technologies", [])
+        lines.extend(
+            [
+                "Technology Changes:",
+                "",
+                f"- Added technologies: {len(added)}",
+                f"- Removed technologies: {len(removed)}",
+                "",
+            ]
+        )
+        lines.extend(_format_changed_items("+", added))
+        lines.extend(_format_changed_items("-", removed))
+        lines.append("")
+    return lines
 
 
 def _result_count(report: ReconReport, name: str) -> int:

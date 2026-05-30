@@ -83,18 +83,31 @@ Startup output shows the target, config path, enabled tools and configured
 binaries, progress between stages, summary counts, and the generated report and
 output file locations.
 
-The workflow runs subdomain discovery, live host detection, and historical URL
-collection for the authorized domain. Processed outputs are written to
-`data/processed/`, and a plain markdown report is written to `reports/`.
+The workflow runs subdomain discovery, live host detection, passive technology
+fingerprinting, and historical URL collection for the authorized domain.
+Processed outputs are written to `data/processed/`, and a plain markdown report
+is written to `reports/`.
 Completed run summaries are also stored in a local SQLite database at
 `data/reconbot.db` so future features can compare runs without parsing report
 files.
 Reports include a small comparison against the most recent previous run for the
 same target, including added and removed subdomains and live URLs.
+Reports also include a technology summary and technology changes detected across
+live URLs.
 
 Tool wrappers expect their external binaries to be installed separately and
 available on `PATH`. The current wrappers expect ProjectDiscovery `subfinder`
 and `httpx`, plus `gau`.
+
+Technology fingerprinting reuses the configured `httpx` binary with passive
+technology detection options:
+
+```bash
+httpx -silent -json -tech-detect -u https://example.com
+```
+
+Reconbot parses the JSON output for technology names such as web servers, CDNs,
+CMSs, frameworks, and language indicators.
 
 Tool settings live in `configs/default.yaml`. Each tool supports a small set of
 settings:
