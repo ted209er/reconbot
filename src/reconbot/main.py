@@ -34,6 +34,7 @@ from reconbot.history import (
 )
 from reconbot.logging_config import setup_logging
 from reconbot.models import ReconReport, ReconTarget, ToolResult
+from reconbot.prioritization import prioritize_assets
 from reconbot.reporting import write_markdown_report
 from reconbot.screenshots import capture_screenshots
 from reconbot.tools.detection import MissingExternalToolsError, validate_required_tools
@@ -210,6 +211,14 @@ def run_workflow(
         "added_screenshots": calculate_added_screenshots(screenshots, previous_screenshots),
         "removed_screenshots": calculate_removed_screenshots(screenshots, previous_screenshots),
     }
+    prioritized_assets = prioritize_assets(
+        live_urls,
+        technology_fingerprints=technology_fingerprints,
+        new_subdomains=diff_items["added_subdomains"],
+        new_live_urls=diff_items["added_live_urls"],
+        new_technologies=technology_diff["added_technologies"],
+        screenshot_urls=list(screenshots),
+    )
     report.complete()
     if report.finished_at is None:
         raise RuntimeError("report completion timestamp was not set")
@@ -254,6 +263,7 @@ def run_workflow(
         run_name,
         screenshots,
         screenshot_diff,
+        prioritized_assets,
     )
     json_export_path = json_exports_dir / f"{safe_filename(target.domain)}.json"
     if write_json:
@@ -269,6 +279,7 @@ def run_workflow(
             technology_diff=technology_diff,
             screenshots=screenshots,
             screenshot_diff=screenshot_diff,
+            prioritized_assets=prioritized_assets,
         )
         write_json_export(json_export, json_export_path)
         logger.info("Wrote JSON export to %s", json_export_path)

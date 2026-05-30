@@ -138,6 +138,9 @@ def test_run_workflow_calls_wrappers_and_writes_outputs(
     assert "- Screenshots captured: 1" in report_text
     assert "- New screenshot targets: 1" in report_text
     assert "+ https://a.example.com" in report_text
+    assert "## High Interest Assets" in report_text
+    assert "1. https://a.example.com" in report_text
+    assert "   - New live URL" in report_text
     history = list_recent_runs(database_path=main.HISTORY_DATABASE_PATH)
     assert len(history) == 1
     assert history[0].target == "example.com"
@@ -168,6 +171,8 @@ def test_run_workflow_calls_wrappers_and_writes_outputs(
     assert json_export["counts"]["screenshots"] == 1
     assert json_export["subdomains"] == ["a.example.com", "b.example.com"]
     assert json_export["screenshot_changes"]["added_screenshots"] == ["https://a.example.com"]
+    assert json_export["prioritized_assets"][0]["url"] == "https://a.example.com"
+    assert json_export["prioritized_assets"][0]["score"] == 15
 
 
 def test_run_workflow_prints_startup_progress_and_summary(

@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from reconbot.models import ReconReport, ReconTarget, ToolResult
+from reconbot.prioritization import PrioritizedAsset
 from reconbot.reporting import build_markdown_report, write_markdown_report
 
 
@@ -174,3 +175,33 @@ def test_build_markdown_report_includes_screenshot_summary() -> None:
     assert "Removed screenshot targets:" in markdown
     assert "- https://old.example.com" in markdown
     assert "- Screenshots: `reports/screenshots/example-com`" in markdown
+
+
+def test_build_markdown_report_includes_high_interest_assets() -> None:
+    report = ReconReport(
+        target=ReconTarget(domain="example.com", config_path=Path("config.yaml"))
+    )
+
+    markdown = build_markdown_report(
+        report,
+        {
+            "subdomains": Path("subdomains.txt"),
+            "live_hosts": Path("live_urls.txt"),
+            "historical_urls": Path("historical_urls.txt"),
+        },
+        prioritized_assets=[
+            PrioritizedAsset(
+                url="https://admin.example.com",
+                score=12,
+                reasons=["New subdomain", "Login/admin/auth keyword"],
+            ),
+            PrioritizedAsset(url="https://plain.example.com", score=0, reasons=[]),
+        ],
+    )
+
+    assert "## High Interest Assets" in markdown
+    assert "1. https://admin.example.com" in markdown
+    assert "   Score: 12" in markdown
+    assert "   - New subdomain" in markdown
+    assert "   - Login/admin/auth keyword" in markdown
+    assert "https://plain.example.com" not in markdown

@@ -6,6 +6,7 @@ from collections.abc import Mapping
 from pathlib import Path
 
 from reconbot.models import ReconReport
+from reconbot.prioritization import PrioritizedAsset
 
 
 def write_markdown_report(
@@ -18,6 +19,7 @@ def write_markdown_report(
     run_name: str = "",
     screenshots: Mapping[str, Path] | None = None,
     screenshot_diff: Mapping[str, list[str]] | None = None,
+    prioritized_assets: list[PrioritizedAsset] | None = None,
 ) -> Path:
     """Write a plain markdown report to disk."""
     report_path.parent.mkdir(parents=True, exist_ok=True)
@@ -30,6 +32,7 @@ def write_markdown_report(
         run_name,
         screenshots,
         screenshot_diff,
+        prioritized_assets,
     )
     report_path.write_text(markdown, encoding="utf-8")
     return report_path
@@ -44,6 +47,7 @@ def build_markdown_report(
     run_name: str = "",
     screenshots: Mapping[str, Path] | None = None,
     screenshot_diff: Mapping[str, list[str]] | None = None,
+    prioritized_assets: list[PrioritizedAsset] | None = None,
 ) -> str:
     """Build a plain markdown report for a recon run."""
     lines = [
@@ -63,6 +67,8 @@ def build_markdown_report(
         lines.extend(_build_technology_section(technology_summary, technology_diff))
     if screenshots is not None:
         lines.extend(_build_screenshot_section(screenshots, screenshot_diff))
+    if prioritized_assets is not None:
+        lines.extend(_build_prioritized_asset_section(prioritized_assets))
     lines.extend(_build_output_file_section(output_files))
     return "\n".join(lines)
 
@@ -173,6 +179,27 @@ def _build_screenshot_section(
         lines.append("Removed screenshot targets:")
         lines.append("")
         lines.extend(_format_changed_items("-", removed))
+        lines.append("")
+    return lines
+
+
+def _build_prioritized_asset_section(assets: list[PrioritizedAsset]) -> list[str]:
+    """Build markdown lines for high interest assets."""
+    high_interest_assets = [asset for asset in assets if asset.score > 0]
+    lines = ["## High Interest Assets", ""]
+    if not high_interest_assets:
+        lines.extend(["- None identified", ""])
+        return lines
+
+    for index, asset in enumerate(high_interest_assets, start=1):
+        lines.append(f"{index}. {asset.url}")
+        lines.append("")
+        lines.append(f"   Score: {asset.score}")
+        lines.append("")
+        lines.append("   Reasons:")
+        lines.append("")
+        for reason in asset.reasons:
+            lines.append(f"   - {reason}")
         lines.append("")
     return lines
 

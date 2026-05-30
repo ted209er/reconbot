@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from reconbot.models import ReconReport
+from reconbot.prioritization import PrioritizedAsset
 
 
 def build_json_export(
@@ -23,6 +24,7 @@ def build_json_export(
     technology_diff: Mapping[str, list[str]],
     screenshots: Mapping[str, Path],
     screenshot_diff: Mapping[str, list[str]],
+    prioritized_assets: list[PrioritizedAsset],
 ) -> dict[str, Any]:
     """Build a deterministic JSON-serializable export."""
     screenshot_paths = {url: str(path) for url, path in sorted(screenshots.items())}
@@ -47,6 +49,7 @@ def build_json_export(
         "technology_changes": _sorted_change_lists(technology_diff),
         "screenshot_paths": screenshot_paths,
         "screenshot_changes": _sorted_change_lists(screenshot_diff),
+        "prioritized_assets": _prioritized_assets(prioritized_assets),
     }
 
 
@@ -68,3 +71,15 @@ def _stringify_paths(paths: Mapping[str, Path]) -> dict[str, str]:
 def _sorted_change_lists(changes: Mapping[str, list[str]]) -> dict[str, list[str]]:
     """Return sorted change lists with stable keys."""
     return {name: sorted(values) for name, values in sorted(changes.items())}
+
+
+def _prioritized_assets(assets: list[PrioritizedAsset]) -> list[dict[str, Any]]:
+    """Return prioritized assets as JSON-serializable dictionaries."""
+    return [
+        {
+            "url": asset.url,
+            "score": asset.score,
+            "reasons": sorted(asset.reasons),
+        }
+        for asset in assets
+    ]

@@ -15,6 +15,7 @@ Reconbot uses a small `src` layout so application code is importable as the
 - `src/reconbot/main.py` owns top-level orchestration for the CLI entry point.
 - `src/reconbot/exporting.py` owns structured JSON export generation.
 - `src/reconbot/fingerprinting.py` owns passive technology fingerprinting.
+- `src/reconbot/prioritization.py` owns rule-based asset prioritization.
 - `src/reconbot/screenshots.py` owns passive screenshot capture.
 - `src/reconbot/history.py` owns the lightweight SQLite run history.
 - `src/reconbot/utils/` contains shared helpers that are not recon tools.
@@ -45,8 +46,19 @@ future integrations. Exports are written to
 
 The export layer uses only the standard library. It serializes run metadata,
 output paths, counts, discoveries, technology summaries and changes, screenshot
-paths and changes, and the markdown report path. It does not add APIs, web
-services, dashboards, or external serialization libraries.
+paths and changes, prioritized assets, and the markdown report path. It does not
+add APIs, web services, dashboards, or external serialization libraries.
+
+## Prioritization Layer
+
+`src/reconbot/prioritization.py` assigns simple explainable scores to live URLs.
+It is deterministic and rule-based. Signals include new subdomains, new live
+URLs, newly observed technologies, admin/login/auth keywords, API keywords, and
+screenshot availability.
+
+Prioritization does not use machine learning, AI scoring, external services,
+risk databases, vulnerability detection, or exploit logic. It only helps users
+review interesting discovered assets first.
 
 ## Fingerprinting Layer
 
