@@ -3,6 +3,7 @@ from pathlib import Path
 
 from reconbot.exporting import build_json_export, write_json_export
 from reconbot.models import ReconReport, ReconTarget
+from reconbot.prioritization import PrioritizedAsset
 
 
 def test_build_json_export_includes_expected_structure() -> None:
@@ -32,6 +33,13 @@ def test_build_json_export_includes_expected_structure() -> None:
             "added_screenshots": ["https://b.example.com"],
             "removed_screenshots": [],
         },
+        prioritized_assets=[
+            PrioritizedAsset(
+                url="https://a.example.com",
+                score=6,
+                reasons=["Screenshot available", "New live URL"],
+            )
+        ],
     )
 
     assert export["target"] == "example.com"
@@ -52,6 +60,13 @@ def test_build_json_export_includes_expected_structure() -> None:
         "https://a.example.com": "reports/screenshots/example-com/a.png",
         "https://b.example.com": "reports/screenshots/example-com/b.png",
     }
+    assert export["prioritized_assets"] == [
+        {
+            "url": "https://a.example.com",
+            "score": 6,
+            "reasons": ["New live URL", "Screenshot available"],
+        }
+    ]
 
 
 def test_build_json_export_sorts_change_lists() -> None:
@@ -71,6 +86,7 @@ def test_build_json_export_sorts_change_lists() -> None:
         technology_diff={"added_technologies": ["React", "Apache"]},
         screenshots={},
         screenshot_diff={"added_screenshots": ["https://b.example.com", "https://a.example.com"]},
+        prioritized_assets=[],
     )
 
     assert export["technology_changes"] == {"added_technologies": ["Apache", "React"]}

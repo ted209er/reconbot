@@ -102,6 +102,10 @@ screenshot targets by URL. It does not compare pixels, hash image contents, run
 OCR, or perform visual regression testing.
 Structured JSON exports are written to `reports/json/<safe-target-name>.json`
 for automation, scripting, and future integrations.
+Reconbot also builds a rule-based high-interest asset list to help review the
+most relevant live URLs first. Scores are explainable and deterministic:
+new subdomains and new live URLs add 5 points each, new technologies add 4,
+admin/login/auth URL keywords add 3, API keywords add 2, and screenshots add 1.
 
 Tool wrappers expect their external binaries to be installed separately and
 available on `PATH`. The current wrappers expect ProjectDiscovery `subfinder`
