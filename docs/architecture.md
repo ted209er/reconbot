@@ -8,6 +8,8 @@ Reconbot uses a small `src` layout so application code is importable as the
 - `src/reconbot/cli.py` owns command-line parsing and should stay free of
   workflow logic.
 - `src/reconbot/config.py` owns YAML loading and typed access helpers.
+- `src/reconbot/config_loader.py` owns packaged default configuration discovery
+  and loading.
 - `src/reconbot/logging_config.py` owns logging setup for console and file
   output.
 - `src/reconbot/models.py` owns shared dataclasses used across orchestration,
@@ -35,6 +37,10 @@ call external tools directly.
 
 Configuration code should validate and return typed values. It should not mutate
 global state.
+
+Config loader code should use package resources to find the installed default
+config. It should not generate environment-specific configs, download remote
+configs, or prompt users through setup wizards.
 
 Logging setup should be centralized so modules only need `logging.getLogger`.
 
@@ -64,6 +70,21 @@ reports, JSON exports, screenshots, and SQLite run history use workspace paths.
 
 The workspace layer does not implement multi-user coordination, cloud storage,
 synchronization, dashboards, or background services.
+
+## Default Config
+
+Reconbot includes `src/reconbot/configs/default.yaml` as package data so normal
+and editable installs can run without a repo-local config path:
+
+```bash
+reconbot --domain example.com
+```
+
+`src/reconbot/config_loader.py` exposes `get_default_config_path()` and
+`load_default_config()` using standard-library package resource APIs. When
+`--config` is omitted, orchestration loads the packaged default config. When
+`--config PATH` is supplied, orchestration uses that custom file and preserves
+the previous override behavior.
 
 ## Export Layer
 

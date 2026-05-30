@@ -1,0 +1,36 @@
+logging:
+  file: logs/reconbot.log
+output:
+  processed_dir: data/processed
+  reports_dir: reports
+  json_exports_dir: reports/json
+  write_json: true
+tools:
+  subfinder:
+    enabled: true
+    binary: subfinder
+    timeout: 120
+  assetfinder:
+    enabled: true
+    binary: assetfinder
+    timeout: 120
+  crtsh:
+    enabled: true
+    binary: curl
+    timeout: 120
+  httpx:
+    enabled: true
+    binary: httpx
+    timeout: 120
+  gau:
+    enabled: true
+    binary: gau
+    timeout: 120
+  waybackurls:
+    enabled: true
+    binary: waybackurls
+    timeout: 120
+  screenshots:
+    enabled: true
+    binary: gowitness
+    timeout: 300

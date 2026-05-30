@@ -11,6 +11,7 @@ from urllib.parse import urlparse
 
 from reconbot.cli import parse_args
 from reconbot.config import Config, get_bool, get_float, get_path, get_section, get_str, load_config
+from reconbot.config_loader import get_default_config_path, load_default_config
 from reconbot.exporting import build_json_export, write_json_export
 from reconbot.fingerprinting import fingerprint_urls, summarize_technologies
 from reconbot.history import (
@@ -73,13 +74,13 @@ class ToolSettings:
 
 def run_workflow(
     domain: str,
-    config_path: Path,
+    config_path: Path | None,
     verbose: bool,
     run_name: str = "",
     workspace_path: Path | None = None,
 ) -> ReconReport:
     """Run the recon orchestration workflow."""
-    config = load_config(config_path)
+    config, effective_config_path, using_packaged_config = _load_runtime_config(config_path)
     logging_section = get_section(config, "logging")
     output_section = get_section(config, "output")
     tool_settings = _load_tool_settings(get_section(config, "tools"))
@@ -109,12 +110,22 @@ def run_workflow(
     write_json = get_bool(output_section, "write_json", True)
     logger = setup_logging(verbose=verbose, log_file=log_file)
 
-    target = ReconTarget(domain=domain, config_path=config_path)
+    target = ReconTarget(domain=domain, config_path=effective_config_path)
     report = ReconReport(target=target)
 
-    _print_startup_banner(target.domain, config_path, run_name, workspace)
+    _print_startup_banner(
+        target.domain,
+        effective_config_path,
+        run_name,
+        workspace,
+        using_packaged_config,
+    )
     _print_tool_settings(tool_settings)
     logger.info("Starting recon workflow for %s", target.domain)
+    if using_packaged_config:
+        logger.info("Using packaged default config")
+    else:
+        logger.info("Using config: %s", target.config_path)
     logger.debug("Loaded configuration from %s", target.config_path)
     logger.info("Initializing run history database at %s", database_path)
     initialize_database(database_path)
@@ -365,6 +376,13 @@ def _prepare_workspace(workspace_path: Path | None) -> WorkspacePaths | None:
     return ensure_workspace(resolved)
 
 
+def _load_runtime_config(config_path: Path | None) -> tuple[Config, Path, bool]:
+    """Load custom config or packaged default config."""
+    if config_path is None:
+        return load_default_config(), get_default_config_path(), True
+    return load_config(config_path), config_path, False
+
+
 def _discover_subdomains(
     domain: str,
     tool_settings: dict[str, ToolSettings],
@@ -436,13 +454,18 @@ def _print_startup_banner(
     config_path: Path,
     run_name: str,
     workspace: WorkspacePaths | None,
+    using_packaged_config: bool,
 ) -> None:
     """Print a concise startup banner."""
     print("Reconbot")
     print(f"Target: {domain}")
     if run_name:
         print(f"Run name: {run_name}")
-    print(f"Config: {config_path}")
+    if using_packaged_config:
+        print("Using packaged default config")
+    else:
+        print("Using config:")
+        print(f"  {config_path}")
     if workspace is not None:
         print(f"Workspace: {workspace.root}")
 

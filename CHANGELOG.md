@@ -18,6 +18,8 @@ Reconbot uses simple semantic versioning:
 - Added optional workspace support for separating application code from
   engagement data, including workspace artifact paths, report metadata, JSON
   metadata, and workspace-specific SQLite run history.
+- Added packaged default configuration loading so installed Reconbot can run
+  without a repo-local `--config` path while preserving custom config overrides.
 
 ## [0.1.0] - Initial MVP
 

@@ -6,6 +6,7 @@ import pytest
 from pytest import MonkeyPatch
 
 from reconbot import main
+from reconbot.config import Config
 from reconbot.history import (
     get_previous_screenshots,
     get_previous_technologies,
@@ -486,6 +487,56 @@ def test_run_workflow_validates_required_tools(tmp_path: Path, monkeypatch: Monk
     assert calls == [
         ["subfinder", "assetfinder", "curl", "httpx", "gau", "waybackurls", "gowitness"]
     ]
+
+
+def test_load_runtime_config_uses_custom_config_when_supplied(tmp_path: Path) -> None:
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text("logging:\n  file: custom.log\n", encoding="utf-8")
+
+    config, effective_path, using_packaged_config = main._load_runtime_config(config_path)
+
+    assert effective_path == config_path
+    assert using_packaged_config is False
+    assert config["logging"]["file"] == "custom.log"
+
+
+def test_run_workflow_uses_packaged_config_when_config_is_omitted(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    default_config_path = tmp_path / "packaged-default.yaml"
+    workspace = tmp_path / "workspace"
+    packaged_config: Config = {
+        "logging": {"file": str(tmp_path / "reconbot.log")},
+        "tools": {
+            "subfinder": {"enabled": False},
+            "assetfinder": {"enabled": False},
+            "crtsh": {"enabled": False},
+            "httpx": {"enabled": False},
+            "gau": {"enabled": False},
+            "waybackurls": {"enabled": False},
+            "screenshots": {"enabled": False},
+        },
+    }
+
+    monkeypatch.setattr(main, "load_default_config", lambda: packaged_config)
+    monkeypatch.setattr(main, "get_default_config_path", lambda: default_config_path)
+    monkeypatch.setattr(main, "validate_required_tools", lambda tool_names: None)
+
+    main.run_workflow(
+        "example.com",
+        None,
+        verbose=False,
+        workspace_path=workspace,
+    )
+
+    output = capsys.readouterr().out
+    assert "Using packaged default config" in output
+    assert f"Workspace: {workspace.resolve()}" in output
+    assert (workspace / "reports" / "example.com.md").is_file()
+    assert (workspace / "data" / "reconbot.db").is_file()
+    assert not (tmp_path / "reports" / "example.com.md").exists()
 
 
 def test_main_prints_missing_binary_errors(

@@ -140,13 +140,15 @@ pip install -e ".[dev]"
 make validate
 
 reconbot --help
-reconbot --domain example.com --config configs/default.yaml
+reconbot --domain example.com
 ```
 
 The first real run creates local `data/`, `reports/`, and `logs/` directories.
 Reports include output paths, discovery source counts, technology summaries,
 screenshot metadata, and changes compared with the previous run for the same
 target.
+When `--config` is omitted, Reconbot uses the packaged default config installed
+with the application.
 
 ## Running From A Workspace
 
@@ -191,10 +193,16 @@ If the command fails, install the tool, reopen your terminal, or update the
 matching `tools.<name>.binary` value in `configs/default.yaml` to the full
 executable path.
 
-### Missing Config
+### Custom Config
 
-`reconbot --config` must point to an existing YAML file. From outside the repo,
-use an absolute config path:
+`--config` is optional. Omit it to use the packaged default config:
+
+```bash
+reconbot --domain example.com
+```
+
+If you do pass `--config`, it must point to an existing YAML file. From outside
+the repo, use an absolute config path:
 
 ```bash
 reconbot --domain example.com --config /home/user/Repos/reconbot/configs/default.yaml

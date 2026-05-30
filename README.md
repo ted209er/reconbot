@@ -19,6 +19,8 @@ modules must preserve this boundary.
   `--config`, `--workspace`, and `--verbose`.
 - `src/reconbot/config.py` loads YAML configuration with `pathlib` and typed
   helper functions.
+- `src/reconbot/config_loader.py` loads the packaged default configuration when
+  users do not pass `--config`.
 - `src/reconbot/logging_config.py` centralizes console and file logging.
 - `src/reconbot/models.py` defines `ReconTarget`, `ToolResult`, and
   `ReconReport`.
@@ -33,7 +35,8 @@ modules must preserve this boundary.
   local to the tool.
 - `src/reconbot/modules/` is reserved for orchestration modules that compose tool
   wrappers into workflow phases.
-- `configs/default.yaml` contains the default application configuration.
+- `configs/default.yaml` mirrors the packaged default application
+  configuration.
 - `docs/` contains architecture and security notes.
 
 ## Setup
@@ -68,7 +71,7 @@ python -m pip install -e ".[dev]"
 
 make validate
 
-reconbot --domain example.com --config configs/default.yaml
+reconbot --domain example.com
 ```
 
 Reconbot uses external binaries for tool wrappers. Install `subfinder`,
@@ -121,7 +124,7 @@ pip install -e ".[dev]"
 make validate
 
 reconbot --help
-reconbot --domain example.com --config configs/default.yaml
+reconbot --domain example.com
 ```
 
 Use only domains you own or have explicit written authorization to test. If
@@ -161,6 +164,7 @@ workspace/
 When `--workspace` is provided, generated reports, screenshots, JSON exports,
 processed data, and SQLite run history are written under that workspace. Without
 `--workspace`, Reconbot preserves the existing config-driven output behavior.
+When `--config` is omitted, Reconbot uses its packaged default config.
 
 ## Running
 
@@ -173,6 +177,8 @@ reconbot --domain example.com --workspace ~/Recon/hackerone/example
 Startup output shows the target, config path, enabled tools and configured
 binaries, progress between stages, summary counts, and the generated report and
 output file locations.
+It also prints `Using packaged default config` when `--config` is omitted, or
+`Using config:` with the custom path when `--config` is supplied.
 
 The workflow runs passive subdomain discovery, live host detection, passive
 technology fingerprinting, screenshot capture, and historical URL collection for the authorized domain.
@@ -242,8 +248,9 @@ cd /home/user/Repos/reconbot
 See [docs/scheduling.md](docs/scheduling.md) for cron, systemd timer, and WSL
 examples.
 
-Tool settings live in `configs/default.yaml`. Each tool supports a small set of
-settings:
+Tool settings live in the packaged default config. The repo copy at
+`configs/default.yaml` is useful as a reference or a starting point for a custom
+config. Each tool supports a small set of settings:
 
 ```yaml
 output:
