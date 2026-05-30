@@ -16,6 +16,7 @@ def write_markdown_report(
     technology_summary: Mapping[str, int] | None = None,
     technology_diff: Mapping[str, list[str]] | None = None,
     run_name: str = "",
+    screenshots: Mapping[str, Path] | None = None,
 ) -> Path:
     """Write a plain markdown report to disk."""
     report_path.parent.mkdir(parents=True, exist_ok=True)
@@ -26,6 +27,7 @@ def write_markdown_report(
         technology_summary,
         technology_diff,
         run_name,
+        screenshots,
     )
     report_path.write_text(markdown, encoding="utf-8")
     return report_path
@@ -38,6 +40,7 @@ def build_markdown_report(
     technology_summary: Mapping[str, int] | None = None,
     technology_diff: Mapping[str, list[str]] | None = None,
     run_name: str = "",
+    screenshots: Mapping[str, Path] | None = None,
 ) -> str:
     """Build a plain markdown report for a recon run."""
     lines = [
@@ -55,6 +58,8 @@ def build_markdown_report(
         lines.extend(_build_diff_section(diff_items))
     if technology_summary is not None:
         lines.extend(_build_technology_section(technology_summary, technology_diff))
+    if screenshots is not None:
+        lines.extend(_build_screenshot_section(screenshots))
     lines.extend(_build_output_file_section(output_files))
     return "\n".join(lines)
 
@@ -98,6 +103,8 @@ def _build_output_file_section(output_files: Mapping[str, Path]) -> list[str]:
     ]
     if "technologies" in output_files:
         lines.append(f"- Technologies: `{output_files['technologies']}`")
+    if "screenshots" in output_files:
+        lines.append(f"- Screenshots: `{output_files['screenshots']}`")
     lines.append("")
     return lines
 
@@ -128,6 +135,23 @@ def _build_technology_section(
         )
         lines.extend(_format_changed_items("+", added))
         lines.extend(_format_changed_items("-", removed))
+        lines.append("")
+    return lines
+
+
+def _build_screenshot_section(screenshots: Mapping[str, Path]) -> list[str]:
+    """Build markdown lines for captured screenshots."""
+    lines = [
+        "## Screenshots",
+        "",
+        f"- Screenshots Captured: {len(screenshots)}",
+        "",
+    ]
+    if screenshots:
+        lines.append("Screenshots:")
+        lines.append("")
+        for path in sorted(str(path) for path in screenshots.values()):
+            lines.append(f"- {path}")
         lines.append("")
     return lines
 

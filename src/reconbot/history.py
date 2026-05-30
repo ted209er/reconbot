@@ -76,6 +76,16 @@ def initialize_database(database_path: Path = DEFAULT_DATABASE_PATH) -> Path:
             )
             """
         )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS screenshots (
+                run_id INTEGER NOT NULL,
+                url TEXT NOT NULL,
+                screenshot_path TEXT NOT NULL,
+                FOREIGN KEY (run_id) REFERENCES runs (id)
+            )
+            """
+        )
     return database_path
 
 
@@ -270,6 +280,41 @@ def get_previous_technologies(
         target=target,
         table="technologies",
         column="technology",
+        database_path=database_path,
+    )
+
+
+def record_screenshots(
+    *,
+    run_id: int,
+    screenshots: dict[str, Path],
+    database_path: Path = DEFAULT_DATABASE_PATH,
+) -> None:
+    """Record screenshot paths for one run."""
+    initialize_database(database_path)
+    rows = [
+        (run_id, url, str(path))
+        for url, path in sorted(screenshots.items())
+    ]
+    if not rows:
+        return
+    with sqlite3.connect(database_path) as connection:
+        connection.executemany(
+            "INSERT INTO screenshots (run_id, url, screenshot_path) VALUES (?, ?, ?)",
+            rows,
+        )
+
+
+def get_previous_screenshots(
+    *,
+    target: str,
+    database_path: Path = DEFAULT_DATABASE_PATH,
+) -> list[str]:
+    """Return screenshot paths from the most recent previous run for a target."""
+    return _get_previous_items(
+        target=target,
+        table="screenshots",
+        column="screenshot_path",
         database_path=database_path,
     )
 

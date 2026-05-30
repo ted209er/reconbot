@@ -24,18 +24,23 @@ from reconbot.history import (
     initialize_database,
     record_live_urls,
     record_run,
+    record_screenshots,
     record_subdomains,
     record_technologies,
 )
 from reconbot.logging_config import setup_logging
 from reconbot.models import ReconReport, ReconTarget, ToolResult
 from reconbot.reporting import write_markdown_report
+from reconbot.screenshots import capture_screenshots
 from reconbot.tools.detection import MissingExternalToolsError, validate_required_tools
 from reconbot.tools.gau import find_urls as find_historical_urls
 from reconbot.tools.httpx import find_live_urls
 from reconbot.tools.subfinder import find_subdomains
+from reconbot.utils.normalize import safe_filename
 
-REQUIRED_EXTERNAL_TOOLS = ("subfinder", "httpx", "gau")
+REQUIRED_EXTERNAL_TOOLS = ("subfinder", "httpx", "gau", "screenshots")
+DEFAULT_TOOL_BINARIES = {"screenshots": "gowitness"}
+DEFAULT_TOOL_TIMEOUTS = {"screenshots": 300.0}
 HISTORY_DATABASE_PATH = DEFAULT_DATABASE_PATH
 
 
@@ -123,6 +128,21 @@ def run_workflow(
     technologies_path = processed_dir / "technologies.txt"
     _write_lines(technologies_path, _format_technology_lines(technology_fingerprints))
 
+    screenshot_settings = tool_settings["screenshots"]
+    screenshots_dir = reports_dir / "screenshots" / safe_filename(target.domain)
+    if screenshot_settings.enabled:
+        _print_stage("Screenshot capture")
+        logger.info("Running screenshot capture")
+        screenshots = capture_screenshots(
+            live_urls,
+            output_dir=screenshots_dir,
+            binary=screenshot_settings.binary,
+            timeout=screenshot_settings.timeout,
+        )
+    else:
+        logger.info("Skipping screenshot capture because screenshots are disabled")
+        screenshots = {}
+
     gau_settings = tool_settings["gau"]
     if gau_settings.enabled:
         _print_stage("Historical URL collection")
@@ -196,6 +216,11 @@ def run_workflow(
         technologies=technology_fingerprints,
         database_path=HISTORY_DATABASE_PATH,
     )
+    record_screenshots(
+        run_id=run_id,
+        screenshots=screenshots,
+        database_path=HISTORY_DATABASE_PATH,
+    )
     report_path = reports_dir / f"{target.domain}.md"
     write_markdown_report(
         report,
@@ -210,12 +235,19 @@ def run_workflow(
         technology_summary,
         technology_diff,
         run_name,
+        screenshots,
     )
     logger.info("Wrote markdown report to %s", report_path)
     logger.info("Recon workflow complete for %s", target.domain)
     _print_completion(
         report_path=report_path,
-        output_paths=[subdomains_path, live_urls_path, historical_urls_path, technologies_path],
+        output_paths=[
+            subdomains_path,
+            live_urls_path,
+            historical_urls_path,
+            technologies_path,
+            screenshots_dir,
+        ],
         subdomain_count=len(subdomains),
         live_url_count=len(live_urls),
         historical_url_count=len(historical_urls),
@@ -236,8 +268,8 @@ def _load_one_tool_settings(config: Config, tool_name: str) -> ToolSettings:
     section = get_section(config, tool_name)
     return ToolSettings(
         enabled=get_bool(section, "enabled", True),
-        binary=get_str(section, "binary", tool_name),
-        timeout=get_float(section, "timeout", 120.0),
+        binary=get_str(section, "binary", DEFAULT_TOOL_BINARIES.get(tool_name, tool_name)),
+        timeout=get_float(section, "timeout", DEFAULT_TOOL_TIMEOUTS.get(tool_name, 120.0)),
     )
 
 

@@ -14,6 +14,7 @@ Reconbot uses a small `src` layout so application code is importable as the
   wrappers, and reporting.
 - `src/reconbot/main.py` owns top-level orchestration for the CLI entry point.
 - `src/reconbot/fingerprinting.py` owns passive technology fingerprinting.
+- `src/reconbot/screenshots.py` owns passive screenshot capture.
 - `src/reconbot/history.py` owns the lightweight SQLite run history.
 - `src/reconbot/utils/` contains shared helpers that are not recon tools.
 - `src/reconbot/tools/` is reserved for future wrappers around external tools or
@@ -45,6 +46,18 @@ proxies, frameworks, CMSs, and language hints. It does not perform vulnerability
 scanning, exploit checks, brute force, credential enumeration, browser
 automation, or active security testing.
 
+## Screenshot Layer
+
+`src/reconbot/screenshots.py` captures screenshots for discovered live URLs
+using the configured external `gowitness` binary. Screenshots run after
+technology fingerprinting and before historical URL collection.
+
+Screenshot paths are deterministic and stored under
+`reports/screenshots/<safe-target-name>/`. The layer records screenshot metadata
+in SQLite and adds captured paths to markdown reports. It does not add
+Playwright, Selenium, browser automation frameworks, OCR, image analysis,
+notifications, or dashboards.
+
 ## History Layer
 
 `src/reconbot/history.py` stores completed run summaries and selected per-run
@@ -52,8 +65,8 @@ findings in SQLite using only the standard library `sqlite3` module. The
 database lives at `data/reconbot.db`.
 
 The history layer is intentionally small. It creates the `runs`, `subdomains`,
-`live_urls`, and `technologies` tables when needed, records completed runs,
-stores selected results, and lists recent runs.
+`live_urls`, `technologies`, and `screenshots` tables when needed, records
+completed runs, stores selected results, and lists recent runs.
 
 The workflow compares current subdomains, live URLs, and technologies with the
 latest previous run for the same target before recording the current run.

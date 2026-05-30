@@ -16,3 +16,7 @@ tools:
     enabled: true
     binary: gau
     timeout: 120
+  screenshots:
+    enabled: true
+    binary: gowitness
+    timeout: 300
