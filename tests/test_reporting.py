@@ -156,10 +156,21 @@ def test_build_markdown_report_includes_screenshot_summary() -> None:
             "https://admin.example.com": Path("reports/screenshots/example-com/admin.png"),
             "https://blog.example.com": Path("reports/screenshots/example-com/blog.png"),
         },
+        screenshot_diff={
+            "added_screenshots": ["https://admin.example.com"],
+            "removed_screenshots": ["https://old.example.com"],
+        },
     )
 
     assert "## Screenshots" in markdown
-    assert "- Screenshots Captured: 2" in markdown
+    assert "Screenshot Summary:" in markdown
+    assert "- Screenshots captured: 2" in markdown
+    assert "- New screenshot targets: 1" in markdown
+    assert "- Removed screenshot targets: 1" in markdown
     assert "- reports/screenshots/example-com/admin.png" in markdown
     assert "- reports/screenshots/example-com/blog.png" in markdown
+    assert "New screenshot targets:" in markdown
+    assert "+ https://admin.example.com" in markdown
+    assert "Removed screenshot targets:" in markdown
+    assert "- https://old.example.com" in markdown
     assert "- Screenshots: `reports/screenshots/example-com`" in markdown

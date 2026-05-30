@@ -15,10 +15,13 @@ from reconbot.fingerprinting import fingerprint_urls, summarize_technologies
 from reconbot.history import (
     DEFAULT_DATABASE_PATH,
     calculate_added_items,
+    calculate_added_screenshots,
     calculate_added_technologies,
     calculate_removed_items,
+    calculate_removed_screenshots,
     calculate_removed_technologies,
     get_previous_live_urls,
+    get_previous_screenshots,
     get_previous_subdomains,
     get_previous_technologies,
     initialize_database,
@@ -179,6 +182,10 @@ def run_workflow(
         target=target.domain,
         database_path=HISTORY_DATABASE_PATH,
     )
+    previous_screenshots = get_previous_screenshots(
+        target=target.domain,
+        database_path=HISTORY_DATABASE_PATH,
+    )
     current_technologies = sorted(technology_summary)
     diff_items = {
         "added_subdomains": calculate_added_items(subdomains, previous_subdomains),
@@ -195,6 +202,10 @@ def run_workflow(
             current_technologies,
             previous_technologies,
         ),
+    }
+    screenshot_diff = {
+        "added_screenshots": calculate_added_screenshots(screenshots, previous_screenshots),
+        "removed_screenshots": calculate_removed_screenshots(screenshots, previous_screenshots),
     }
     report.complete()
     if report.finished_at is None:
@@ -219,6 +230,7 @@ def run_workflow(
     record_screenshots(
         run_id=run_id,
         screenshots=screenshots,
+        captured_at=report.finished_at,
         database_path=HISTORY_DATABASE_PATH,
     )
     report_path = reports_dir / f"{target.domain}.md"
@@ -229,6 +241,7 @@ def run_workflow(
             "live_hosts": live_urls_path,
             "historical_urls": historical_urls_path,
             "technologies": technologies_path,
+            "screenshots": screenshots_dir,
         },
         report_path,
         diff_items,
@@ -236,6 +249,7 @@ def run_workflow(
         technology_diff,
         run_name,
         screenshots,
+        screenshot_diff,
     )
     logger.info("Wrote markdown report to %s", report_path)
     logger.info("Recon workflow complete for %s", target.domain)

@@ -1,10 +1,13 @@
+import sqlite3
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from reconbot.history import (
     calculate_added_items,
+    calculate_added_screenshots,
     calculate_added_technologies,
     calculate_removed_items,
+    calculate_removed_screenshots,
     calculate_removed_technologies,
     get_previous_live_urls,
     get_previous_screenshots,
@@ -202,10 +205,28 @@ def test_records_and_reads_previous_screenshots(tmp_path: Path) -> None:
             "https://a.example.com": Path("reports/screenshots/example-com/a.png"),
             "https://b.example.com": Path("reports/screenshots/example-com/b.png"),
         },
+        captured_at=started_at + timedelta(seconds=5),
         database_path=database_path,
     )
 
-    assert get_previous_screenshots(target="example.com", database_path=database_path) == [
-        "reports/screenshots/example-com/a.png",
-        "reports/screenshots/example-com/b.png",
-    ]
+    assert get_previous_screenshots(target="example.com", database_path=database_path) == {
+        "https://a.example.com": Path("reports/screenshots/example-com/a.png"),
+        "https://b.example.com": Path("reports/screenshots/example-com/b.png"),
+    }
+    with sqlite3.connect(database_path) as connection:
+        rows = connection.execute("SELECT DISTINCT captured_at FROM screenshots").fetchall()
+    assert rows == [((started_at + timedelta(seconds=5)).isoformat(),)]
+
+
+def test_calculate_added_and_removed_screenshots_use_urls() -> None:
+    current = {
+        "https://admin.example.com": Path("reports/screenshots/example-com/admin.png"),
+        "https://blog.example.com": Path("reports/screenshots/example-com/blog.png"),
+    }
+    previous = {
+        "https://blog.example.com": Path("reports/screenshots/example-com/blog-old.png"),
+        "https://old.example.com": Path("reports/screenshots/example-com/old.png"),
+    }
+
+    assert calculate_added_screenshots(current, previous) == ["https://admin.example.com"]
+    assert calculate_removed_screenshots(current, previous) == ["https://old.example.com"]
