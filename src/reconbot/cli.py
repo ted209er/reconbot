@@ -7,7 +7,6 @@ import re
 from collections.abc import Sequence
 from pathlib import Path
 
-DEFAULT_CONFIG_PATH = Path("configs/default.yaml")
 DOMAIN_PATTERN = re.compile(r"^(?!-)(?:[a-zA-Z0-9-]{1,63}\.)+[a-zA-Z]{2,63}$")
 
 
@@ -27,9 +26,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--config",
         type=_config_path,
-        default=DEFAULT_CONFIG_PATH,
+        default=None,
         metavar="PATH",
-        help=f"Path to YAML configuration file. Defaults to {DEFAULT_CONFIG_PATH}.",
+        help="Optional. Uses packaged default config if omitted.",
     )
     parser.add_argument(
         "--verbose",

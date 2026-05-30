@@ -33,7 +33,7 @@ def test_parse_args_accepts_domain_config_verbose_and_run_name(tmp_path: Path) -
 def test_parse_args_uses_default_config() -> None:
     args = parse_args(["--domain", "example.com"])
 
-    assert args.config == Path("configs/default.yaml")
+    assert args.config is None
     assert args.verbose is False
     assert args.run_name == ""
     assert args.workspace is None
