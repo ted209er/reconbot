@@ -28,7 +28,7 @@ def test_capture_screenshot_calls_gowitness(monkeypatch: MonkeyPatch, tmp_path: 
         timeout=30,
     )
 
-    assert result == tmp_path / "https-admin.example.com-login.png"
+    assert result == tmp_path / "https-admin-example-com-login.png"
     assert calls == [
         (
             "gowitness",

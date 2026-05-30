@@ -54,9 +54,11 @@ technology fingerprinting and before historical URL collection.
 
 Screenshot paths are deterministic and stored under
 `reports/screenshots/<safe-target-name>/`. The layer records screenshot metadata
-in SQLite and adds captured paths to markdown reports. It does not add
-Playwright, Selenium, browser automation frameworks, OCR, image analysis,
-notifications, or dashboards.
+in SQLite, including URL, path, and capture timestamp. Reports compare the
+current screenshot URL set with the latest previous run for the same target.
+This is target-level history only: Reconbot does not compare pixels, hash image
+contents, run OCR, add visual regression testing, or add Playwright, Selenium,
+browser automation frameworks, notifications, or dashboards.
 
 ## History Layer
 

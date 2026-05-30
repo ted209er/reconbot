@@ -97,6 +97,9 @@ Reports also include a technology summary and technology changes detected across
 live URLs.
 Screenshots for live URLs are stored under
 `reports/screenshots/<safe-target-name>/` and linked from markdown reports.
+Reconbot records screenshot metadata in SQLite and reports new or removed
+screenshot targets by URL. It does not compare pixels, hash image contents, run
+OCR, or perform visual regression testing.
 
 Tool wrappers expect their external binaries to be installed separately and
 available on `PATH`. The current wrappers expect ProjectDiscovery `subfinder`

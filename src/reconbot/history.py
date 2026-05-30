@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import sqlite3
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 DEFAULT_DATABASE_PATH = Path("data/reconbot.db")
@@ -82,9 +82,16 @@ def initialize_database(database_path: Path = DEFAULT_DATABASE_PATH) -> Path:
                 run_id INTEGER NOT NULL,
                 url TEXT NOT NULL,
                 screenshot_path TEXT NOT NULL,
+                captured_at TEXT NOT NULL DEFAULT '',
                 FOREIGN KEY (run_id) REFERENCES runs (id)
             )
             """
+        )
+        _ensure_column(
+            connection,
+            table="screenshots",
+            column="captured_at",
+            definition="TEXT NOT NULL DEFAULT ''",
         )
     return database_path
 
@@ -288,19 +295,24 @@ def record_screenshots(
     *,
     run_id: int,
     screenshots: dict[str, Path],
+    captured_at: datetime | None = None,
     database_path: Path = DEFAULT_DATABASE_PATH,
 ) -> None:
     """Record screenshot paths for one run."""
     initialize_database(database_path)
+    captured_at_value = (captured_at or datetime.now(UTC)).isoformat()
     rows = [
-        (run_id, url, str(path))
+        (run_id, url, str(path), captured_at_value)
         for url, path in sorted(screenshots.items())
     ]
     if not rows:
         return
     with sqlite3.connect(database_path) as connection:
         connection.executemany(
-            "INSERT INTO screenshots (run_id, url, screenshot_path) VALUES (?, ?, ?)",
+            """
+            INSERT INTO screenshots (run_id, url, screenshot_path, captured_at)
+            VALUES (?, ?, ?, ?)
+            """,
             rows,
         )
 
@@ -309,14 +321,23 @@ def get_previous_screenshots(
     *,
     target: str,
     database_path: Path = DEFAULT_DATABASE_PATH,
-) -> list[str]:
-    """Return screenshot paths from the most recent previous run for a target."""
-    return _get_previous_items(
-        target=target,
-        table="screenshots",
-        column="screenshot_path",
-        database_path=database_path,
-    )
+) -> dict[str, Path]:
+    """Return screenshot paths keyed by URL from the most recent previous run."""
+    initialize_database(database_path)
+    with sqlite3.connect(database_path) as connection:
+        run_id = _get_latest_run_id(connection, target)
+        if run_id is None:
+            return {}
+        rows = connection.execute(
+            """
+            SELECT url, screenshot_path
+            FROM screenshots
+            WHERE run_id = ?
+            ORDER BY url
+            """,
+            (run_id,),
+        ).fetchall()
+    return {str(row[0]): Path(str(row[1])) for row in rows}
 
 
 def calculate_added_items(current: list[str], previous: list[str]) -> list[str]:
@@ -337,6 +358,22 @@ def calculate_added_technologies(current: list[str], previous: list[str]) -> lis
 def calculate_removed_technologies(current: list[str], previous: list[str]) -> list[str]:
     """Return technologies present in the previous run but missing now."""
     return calculate_removed_items(current, previous)
+
+
+def calculate_added_screenshots(
+    current: dict[str, Path],
+    previous: dict[str, Path],
+) -> list[str]:
+    """Return screenshot URLs present now but not in the previous run."""
+    return calculate_added_items(list(current), list(previous))
+
+
+def calculate_removed_screenshots(
+    current: dict[str, Path],
+    previous: dict[str, Path],
+) -> list[str]:
+    """Return screenshot URLs present in the previous run but missing now."""
+    return calculate_removed_items(list(current), list(previous))
 
 
 def _record_items(
@@ -369,17 +406,8 @@ def _get_previous_items(
     """Return sorted items for the latest run matching a target."""
     initialize_database(database_path)
     with sqlite3.connect(database_path) as connection:
-        run_row = connection.execute(
-            """
-            SELECT id
-            FROM runs
-            WHERE target = ?
-            ORDER BY id DESC
-            LIMIT 1
-            """,
-            (target,),
-        ).fetchone()
-        if run_row is None:
+        run_id = _get_latest_run_id(connection, target)
+        if run_id is None:
             return []
         rows = connection.execute(
             f"""
@@ -388,6 +416,23 @@ def _get_previous_items(
             WHERE run_id = ?
             ORDER BY {column}
             """,
-            (int(run_row[0]),),
+            (run_id,),
         ).fetchall()
     return [str(row[0]) for row in rows]
+
+
+def _get_latest_run_id(connection: sqlite3.Connection, target: str) -> int | None:
+    """Return the latest run id for a target."""
+    row = connection.execute(
+        """
+        SELECT id
+        FROM runs
+        WHERE target = ?
+        ORDER BY id DESC
+        LIMIT 1
+        """,
+        (target,),
+    ).fetchone()
+    if row is None:
+        return None
+    return int(row[0])

@@ -6,6 +6,7 @@ from pytest import MonkeyPatch
 
 from reconbot import main
 from reconbot.history import (
+    get_previous_screenshots,
     get_previous_technologies,
     list_recent_runs,
     record_live_urls,
@@ -85,7 +86,7 @@ def test_run_workflow_calls_wrappers_and_writes_outputs(
         timeout: float,
     ) -> dict[str, Path]:
         calls.append(("screenshots", urls, binary, timeout))
-        return {"https://a.example.com": output_dir / "https-a.example.com.png"}
+        return {"https://a.example.com": output_dir / "https-a-example-com.png"}
 
     monkeypatch.setattr(main, "validate_required_tools", fake_validate_required_tools)
     monkeypatch.setattr(main, "find_subdomains", fake_find_subdomains)
@@ -130,6 +131,9 @@ def test_run_workflow_calls_wrappers_and_writes_outputs(
     assert "- Subdomain count: 2" in report_text
     assert "- Live host count: 2" in report_text
     assert "- URL count: 2" in report_text
+    assert "- Screenshots captured: 1" in report_text
+    assert "- New screenshot targets: 1" in report_text
+    assert "+ https://a.example.com" in report_text
     history = list_recent_runs(database_path=main.HISTORY_DATABASE_PATH)
     assert len(history) == 1
     assert history[0].target == "example.com"
@@ -145,6 +149,15 @@ def test_run_workflow_calls_wrappers_and_writes_outputs(
         "Nginx",
         "WordPress",
     ]
+    previous_screenshots = get_previous_screenshots(
+        target="example.com",
+        database_path=main.HISTORY_DATABASE_PATH,
+    )
+    assert previous_screenshots == {
+        "https://a.example.com": (
+            reports_dir / "screenshots" / "example-com" / "https-a-example-com.png"
+        )
+    }
 
 
 def test_run_workflow_prints_startup_progress_and_summary(
