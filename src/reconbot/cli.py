@@ -42,6 +42,13 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="NAME",
         help="Optional label stored with this run, for example daily or weekly-baseline.",
     )
+    parser.add_argument(
+        "--workspace",
+        type=_workspace_path,
+        default=None,
+        metavar="PATH",
+        help="Optional engagement workspace for generated data, reports, and run history.",
+    )
     return parser
 
 
@@ -66,3 +73,8 @@ def _config_path(value: str) -> Path:
     if not path.is_file():
         raise argparse.ArgumentTypeError(f"config file not found: {path}")
     return path
+
+
+def _workspace_path(value: str) -> Path:
+    """Parse a workspace path that may not exist yet."""
+    return Path(value).expanduser()

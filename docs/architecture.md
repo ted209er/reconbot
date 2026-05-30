@@ -14,6 +14,8 @@ Reconbot uses a small `src` layout so application code is importable as the
   wrappers, and reporting.
 - `src/reconbot/main.py` owns top-level orchestration for the CLI entry point.
 - `src/reconbot/exporting.py` owns structured JSON export generation.
+- `src/reconbot/workspaces.py` owns optional engagement workspace resolution,
+  layout creation, and workspace artifact paths.
 - `src/reconbot/fingerprinting.py` owns passive technology fingerprinting.
 - `src/reconbot/technology_categories.py` groups fingerprinted technologies into
   simple report and scoring categories.
@@ -39,18 +41,44 @@ Logging setup should be centralized so modules only need `logging.getLogger`.
 Models should stay simple and serializable. Shared state should move through
 dataclasses such as `ReconTarget`, `ToolResult`, and `ReconReport`.
 
+## Workspace Layer
+
+`src/reconbot/workspaces.py` keeps application code separate from engagement
+data when `--workspace PATH` is provided. It resolves the workspace path,
+creates the standard lightweight layout, and returns typed paths for
+orchestration:
+
+```text
+workspace/
+├── data/
+├── reports/
+├── screenshots/
+├── findings/
+├── notes/
+└── scope.txt
+```
+
+Workspace mode is optional. Without `--workspace`, Reconbot keeps the existing
+config-driven output paths. With `--workspace`, generated processed data,
+reports, JSON exports, screenshots, and SQLite run history use workspace paths.
+
+The workspace layer does not implement multi-user coordination, cloud storage,
+synchronization, dashboards, or background services.
+
 ## Export Layer
 
 `src/reconbot/exporting.py` builds deterministic JSON exports for automation and
 future integrations. Exports are written to
 `reports/json/<safe-target-name>.json` after markdown report generation when
-`output.write_json` is enabled.
+`output.write_json` is enabled. Workspace runs write JSON exports under
+`<workspace>/reports/json/`.
 
 The export layer uses only the standard library. It serializes run metadata,
-output paths, counts, discoveries, passive source counts, technology summaries
-and changes, technology categories and category totals, screenshot paths and
-changes, prioritized assets, and the markdown report path. It does not add
-APIs, web services, dashboards, or external serialization libraries.
+workspace path, output paths, counts, discoveries, passive source counts,
+technology summaries and changes, technology categories and category totals,
+screenshot paths and changes, prioritized assets, and the markdown report path.
+It does not add APIs, web services, dashboards, or external serialization
+libraries.
 
 ## Prioritization Layer
 
@@ -93,18 +121,22 @@ using the configured external `gowitness` binary. Screenshots run after
 technology fingerprinting and before historical URL collection.
 
 Screenshot paths are deterministic and stored under
-`reports/screenshots/<safe-target-name>/`. The layer records screenshot metadata
-in SQLite, including URL, path, and capture timestamp. Reports compare the
-current screenshot URL set with the latest previous run for the same target.
-This is target-level history only: Reconbot does not compare pixels, hash image
-contents, run OCR, add visual regression testing, or add Playwright, Selenium,
-browser automation frameworks, notifications, or dashboards.
+`reports/screenshots/<safe-target-name>/`, or under
+`<workspace>/screenshots/<safe-target-name>/` when a workspace is configured.
+The layer records screenshot metadata in SQLite, including URL, path, and
+capture timestamp. Reports compare the current screenshot URL set with the
+latest previous run for the same target. This is target-level history only:
+Reconbot does not compare pixels, hash image contents, run OCR, add visual
+regression testing, or add Playwright, Selenium, browser automation frameworks,
+notifications, or dashboards.
 
 ## History Layer
 
 `src/reconbot/history.py` stores completed run summaries and selected per-run
 findings in SQLite using only the standard library `sqlite3` module. The
 database lives at `data/reconbot.db`.
+Workspace runs store the database at `<workspace>/data/reconbot.db`, which keeps
+engagement run history with the rest of the engagement artifacts.
 
 The history layer is intentionally small. It creates the `runs`, `subdomains`,
 `live_urls`, `technologies`, and `screenshots` tables when needed, records

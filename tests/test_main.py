@@ -497,6 +497,7 @@ def test_main_prints_missing_binary_errors(
         config_path: Path,
         verbose: bool,
         run_name: str = "",
+        workspace_path: Path | None = None,
     ) -> None:
         raise MissingExternalToolsError("Missing required external tool(s): subfinder.")
 

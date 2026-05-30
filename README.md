@@ -16,13 +16,15 @@ modules must preserve this boundary.
 ## Current Architecture
 
 - `src/reconbot/cli.py` builds the argparse CLI and supports `--domain`,
-  `--config`, and `--verbose`.
+  `--config`, `--workspace`, and `--verbose`.
 - `src/reconbot/config.py` loads YAML configuration with `pathlib` and typed
   helper functions.
 - `src/reconbot/logging_config.py` centralizes console and file logging.
 - `src/reconbot/models.py` defines `ReconTarget`, `ToolResult`, and
   `ReconReport`.
 - `src/reconbot/main.py` contains the placeholder orchestration flow.
+- `src/reconbot/workspaces.py` resolves and creates optional engagement
+  workspaces for generated recon data.
 - `src/reconbot/utils/subprocess_runner.py` wraps `subprocess.run` safely,
   captures output, supports timeouts, and returns `ToolResult` objects.
 - `src/reconbot/tools/` contains lightweight tool wrappers such as the
@@ -136,26 +138,36 @@ multiple authorized targets. A simple layout is:
 ~/Recon/company-b
 ```
 
-Run Reconbot from a workspace and point back to the repo config and installed
-CLI:
+Use `--workspace` to keep engagement data outside the Git checkout:
 
 ```bash
-mkdir -p ~/Recon/company-a
-cd ~/Recon/company-a
-/home/user/Repos/reconbot/.venv/bin/reconbot \
+reconbot \
   --domain example.com \
-  --config /home/user/Repos/reconbot/configs/default.yaml \
-  --run-name first-run
+  --workspace ~/Recon/hackerone/example
 ```
 
-Reconbot writes `data/`, `reports/`, and `logs/` relative to the current
-workspace unless those paths are changed in the config.
+Reconbot creates the workspace if needed:
+
+```text
+workspace/
+├── data/
+├── reports/
+├── screenshots/
+├── findings/
+├── notes/
+└── scope.txt
+```
+
+When `--workspace` is provided, generated reports, screenshots, JSON exports,
+processed data, and SQLite run history are written under that workspace. Without
+`--workspace`, Reconbot preserves the existing config-driven output behavior.
 
 ## Running
 
 ```bash
 reconbot --domain example.com --config configs/default.yaml --verbose
 reconbot --domain example.com --config configs/default.yaml --run-name daily
+reconbot --domain example.com --workspace ~/Recon/hackerone/example
 ```
 
 Startup output shows the target, config path, enabled tools and configured
@@ -165,10 +177,10 @@ output file locations.
 The workflow runs passive subdomain discovery, live host detection, passive
 technology fingerprinting, screenshot capture, and historical URL collection for the authorized domain.
 Processed outputs are written to `data/processed/`, and a plain markdown report
-is written to `reports/`.
+is written to `reports/` unless `--workspace` is provided.
 Completed run summaries are also stored in a local SQLite database at
-`data/reconbot.db` so future features can compare runs without parsing report
-files.
+`data/reconbot.db`, or `<workspace>/data/reconbot.db` for workspace runs, so
+future features can compare runs without parsing report files.
 Reports include a small comparison against the most recent previous run for the
 same target, including added and removed subdomains and live URLs.
 Reports also include a technology summary and technology changes detected across
@@ -177,12 +189,15 @@ Those technologies are grouped into simple categories in the report and JSON
 export, including Infrastructure, Framework, CMS, Identity, Language, and
 Unknown.
 Screenshots for live URLs are stored under
-`reports/screenshots/<safe-target-name>/` and linked from markdown reports.
+`reports/screenshots/<safe-target-name>/`, or
+`<workspace>/screenshots/<safe-target-name>/` for workspace runs, and linked
+from markdown reports.
 Reconbot records screenshot metadata in SQLite and reports new or removed
 screenshot targets by URL. It does not compare pixels, hash image contents, run
 OCR, or perform visual regression testing.
-Structured JSON exports are written to `reports/json/<safe-target-name>.json`
-for automation, scripting, and future integrations.
+Structured JSON exports are written to `reports/json/<safe-target-name>.json`,
+or `<workspace>/reports/json/<safe-target-name>.json` for workspace runs, for
+automation, scripting, and future integrations.
 Reconbot also builds a rule-based high-interest asset list to help review the
 most relevant live URLs first. Scores are explainable and deterministic:
 new subdomains and new live URLs add 5 points each, new technologies add 4,
