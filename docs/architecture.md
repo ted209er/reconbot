@@ -13,6 +13,7 @@ Reconbot uses a small `src` layout so application code is importable as the
 - `src/reconbot/models.py` owns shared dataclasses used across orchestration,
   wrappers, and reporting.
 - `src/reconbot/main.py` owns top-level orchestration for the CLI entry point.
+- `src/reconbot/fingerprinting.py` owns passive technology fingerprinting.
 - `src/reconbot/history.py` owns the lightweight SQLite run history.
 - `src/reconbot/utils/` contains shared helpers that are not recon tools.
 - `src/reconbot/tools/` is reserved for future wrappers around external tools or
@@ -33,20 +34,32 @@ Logging setup should be centralized so modules only need `logging.getLogger`.
 Models should stay simple and serializable. Shared state should move through
 dataclasses such as `ReconTarget`, `ToolResult`, and `ReconReport`.
 
+## Fingerprinting Layer
+
+`src/reconbot/fingerprinting.py` enriches live URLs with passive technology
+signals. It reuses the configured `httpx` binary with JSON technology detection
+options and parses only the returned metadata.
+
+The fingerprinting layer records indicators such as web servers, CDNs, reverse
+proxies, frameworks, CMSs, and language hints. It does not perform vulnerability
+scanning, exploit checks, brute force, credential enumeration, browser
+automation, or active security testing.
+
 ## History Layer
 
 `src/reconbot/history.py` stores completed run summaries and selected per-run
 findings in SQLite using only the standard library `sqlite3` module. The
 database lives at `data/reconbot.db`.
 
-The history layer is intentionally small. It creates the `runs` table when
-needed, records completed runs, stores subdomains and live URLs, and lists
-recent runs.
+The history layer is intentionally small. It creates the `runs`, `subdomains`,
+`live_urls`, and `technologies` tables when needed, records completed runs,
+stores selected results, and lists recent runs.
 
-The workflow compares current subdomains and live URLs with the latest previous
-run for the same target before recording the current run. Reports show simple
-added and removed item counts plus the changed values. The project does not
-implement migrations, dashboards, analytics, notifications, or background jobs.
+The workflow compares current subdomains, live URLs, and technologies with the
+latest previous run for the same target before recording the current run.
+Reports show simple added and removed item counts plus the changed values. The
+project does not implement migrations, dashboards, analytics, notifications, or
+background jobs.
 
 ## Subprocess Runner
 

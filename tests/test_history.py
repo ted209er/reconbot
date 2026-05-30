@@ -3,14 +3,18 @@ from pathlib import Path
 
 from reconbot.history import (
     calculate_added_items,
+    calculate_added_technologies,
     calculate_removed_items,
+    calculate_removed_technologies,
     get_previous_live_urls,
     get_previous_subdomains,
+    get_previous_technologies,
     initialize_database,
     list_recent_runs,
     record_live_urls,
     record_run,
     record_subdomains,
+    record_technologies,
 )
 
 
@@ -117,3 +121,40 @@ def test_calculate_added_and_removed_items_are_sorted_and_deduplicated() -> None
 
     assert calculate_added_items(current, previous) == ["beta.example.com"]
     assert calculate_removed_items(current, previous) == ["old.example.com"]
+
+
+def test_records_and_reads_previous_technologies(tmp_path: Path) -> None:
+    database_path = tmp_path / "reconbot.db"
+    started_at = datetime(2026, 5, 29, 12, 0, tzinfo=UTC)
+    run_id = record_run(
+        target="example.com",
+        started_at=started_at,
+        completed_at=started_at + timedelta(seconds=5),
+        subdomain_count=0,
+        live_url_count=2,
+        url_count=0,
+        database_path=database_path,
+    )
+
+    record_technologies(
+        run_id=run_id,
+        technologies={
+            "https://a.example.com": ["Nginx", "React", "React"],
+            "https://b.example.com": ["Cloudflare"],
+        },
+        database_path=database_path,
+    )
+
+    assert get_previous_technologies(target="example.com", database_path=database_path) == [
+        "Cloudflare",
+        "Nginx",
+        "React",
+    ]
+
+
+def test_calculate_added_and_removed_technologies_are_sorted() -> None:
+    current = ["FastAPI", "Nginx", "Nginx"]
+    previous = ["Drupal", "Nginx"]
+
+    assert calculate_added_technologies(current, previous) == ["FastAPI"]
+    assert calculate_removed_technologies(current, previous) == ["Drupal"]
