@@ -31,6 +31,7 @@ def test_build_markdown_report_includes_summary_and_output_paths() -> None:
     assert "# Reconbot Report" in markdown
     assert "- Target domain: `example.com`" in markdown
     assert "- Run name: `default`" in markdown
+    assert "- Profile: `standard`" in markdown
     assert "- Execution timestamp: `" in markdown
     assert "- Subdomain count: 1" in markdown
     assert "- Live host count: 1" in markdown

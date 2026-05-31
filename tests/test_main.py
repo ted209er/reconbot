@@ -199,6 +199,7 @@ def test_run_workflow_calls_wrappers_and_writes_outputs(
     assert len(history) == 1
     assert history[0].target == "example.com"
     assert history[0].run_name == "daily"
+    assert history[0].profile == "standard"
     assert history[0].subdomain_count == 4
     assert history[0].live_url_count == 2
     assert history[0].url_count == 3
@@ -222,6 +223,7 @@ def test_run_workflow_calls_wrappers_and_writes_outputs(
     json_export = json.loads((reports_dir / "json" / "example-com.json").read_text())
     assert json_export["target"] == "example.com"
     assert json_export["run_name"] == "daily"
+    assert json_export["profile"] == "standard"
     assert json_export["counts"]["screenshots"] == 1
     assert json_export["technology_categories"] == {
         "CMS": {"WordPress": 1},
@@ -277,6 +279,7 @@ def test_run_workflow_prints_startup_progress_and_summary(
     output = capsys.readouterr().out
     assert "Reconbot" in output
     assert "Target: example.com" in output
+    assert "Profile: standard" in output
     assert "- subfinder: disabled, binary=subfinder, timeout=120s" in output
     assert "Complete" in output
     assert f"Report: {reports_dir / 'example.com.md'}" in output
@@ -549,6 +552,7 @@ def test_main_prints_missing_binary_errors(
         verbose: bool,
         run_name: str = "",
         workspace_path: Path | None = None,
+        profile: object = "standard",
     ) -> None:
         raise MissingExternalToolsError("Missing required external tool(s): subfinder.")
 

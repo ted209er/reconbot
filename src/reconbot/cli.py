@@ -8,6 +8,8 @@ import sys
 from collections.abc import Sequence
 from pathlib import Path
 
+from reconbot.profiles import ScanProfile
+
 DOMAIN_PATTERN = re.compile(r"^(?!-)(?:[a-zA-Z0-9-]{1,63}\.)+[a-zA-Z]{2,63}$")
 
 
@@ -55,6 +57,12 @@ def build_run_parser() -> argparse.ArgumentParser:
         default=None,
         metavar="PATH",
         help="Optional engagement workspace for generated data, reports, and run history.",
+    )
+    parser.add_argument(
+        "--profile",
+        choices=[profile.value for profile in ScanProfile],
+        default=ScanProfile.STANDARD.value,
+        help="Passive recon profile. Defaults to standard.",
     )
     return parser
 
