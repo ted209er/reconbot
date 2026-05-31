@@ -14,6 +14,7 @@ from reconbot.config_loader import get_default_config_path, load_default_config
 from reconbot.doctor import HealthStatus, format_doctor_output, overall_status, run_doctor
 from reconbot.exporting import build_json_export, write_json_export
 from reconbot.fingerprinting import PassiveAssetMetadata, fingerprint_urls, summarize_technologies
+from reconbot.guidance import build_investigation_plan, summarize_guidance
 from reconbot.history import (
     DEFAULT_DATABASE_PATH,
     calculate_added_items,
@@ -267,6 +268,14 @@ def run_workflow(
         new_technologies=technology_diff["added_technologies"],
         screenshot_urls=list(screenshots),
     )
+    investigation_guidance = build_investigation_plan(
+        prioritized_assets,
+        asset_categories=asset_categories,
+        technology_fingerprints=technology_fingerprints,
+        new_live_urls=diff_items["added_live_urls"],
+        screenshot_urls=list(screenshots),
+    )
+    guidance_summary = summarize_guidance(investigation_guidance)
     report.complete()
     if report.finished_at is None:
         raise RuntimeError("report completion timestamp was not set")
@@ -320,6 +329,8 @@ def run_workflow(
         profile.value,
         asset_categories,
         asset_category_summary,
+        investigation_guidance,
+        guidance_summary,
     )
     json_export_path = json_exports_dir / f"{safe_filename(target.domain)}.json"
     if write_json:
@@ -344,6 +355,8 @@ def run_workflow(
             profile=profile.value,
             asset_categories=asset_categories,
             asset_category_summary=asset_category_summary,
+            investigation_guidance=investigation_guidance,
+            guidance_summary=guidance_summary,
         )
         write_json_export(json_export, json_export_path)
         logger.info("Wrote JSON export to %s", json_export_path)

@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from reconbot.guidance import AssetGuidance, SuggestedCheck
 from reconbot.models import ReconReport, ReconTarget, ToolResult
 from reconbot.prioritization import PrioritizedAsset
 from reconbot.reporting import build_markdown_report, write_markdown_report
@@ -270,3 +271,40 @@ def test_build_markdown_report_sorts_assets_by_category() -> None:
     assert "- https://login.example.com (high confidence)" in markdown
     assert "- https://docs.example.com (medium confidence)" in markdown
     assert markdown.index("Authentication:") < markdown.index("Documentation:")
+
+
+def test_build_markdown_report_includes_manual_investigation_plan() -> None:
+    report = ReconReport(
+        target=ReconTarget(domain="example.com", config_path=Path("config.yaml"))
+    )
+    check = SuggestedCheck(
+        category="General",
+        title="Security headers review",
+        why_it_matters="Headers help browsers apply protections.",
+        safe_manual_approach="Review headers already captured by Reconbot.",
+        evidence_to_collect="Record relevant headers.",
+    )
+
+    markdown = build_markdown_report(
+        report,
+        {
+            "subdomains": Path("subdomains.txt"),
+            "live_hosts": Path("live_urls.txt"),
+            "historical_urls": Path("historical_urls.txt"),
+        },
+        investigation_guidance=[
+            AssetGuidance(
+                url="https://example.com",
+                reasons=("Screenshot available",),
+                checks=(check,),
+            )
+        ],
+        guidance_summary={"General": 1},
+    )
+
+    assert "## Suggested Manual Investigation Plan" in markdown
+    assert "- General: 1 checks" in markdown
+    assert "### https://example.com" in markdown
+    assert "#### General: Security headers review" in markdown
+    assert "- Evidence: Screenshot available" in markdown
+    assert "- Safety note: Use only authorized targets" in markdown

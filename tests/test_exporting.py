@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 from reconbot.exporting import build_json_export, write_json_export
+from reconbot.guidance import AssetGuidance, SuggestedCheck
 from reconbot.models import ReconReport, ReconTarget
 from reconbot.prioritization import PrioritizedAsset
 from reconbot.technology_categories import AssetCategory, Confidence
@@ -56,6 +57,22 @@ def test_build_json_export_includes_expected_structure() -> None:
             ],
         },
         asset_category_summary={"CDN": 1},
+        investigation_guidance=[
+            AssetGuidance(
+                url="https://a.example.com",
+                reasons=("Screenshot available",),
+                checks=(
+                    SuggestedCheck(
+                        category="General",
+                        title="Security headers review",
+                        why_it_matters="Headers matter.",
+                        safe_manual_approach="Review captured headers.",
+                        evidence_to_collect="Record relevant headers.",
+                    ),
+                ),
+            )
+        ],
+        guidance_summary={"General": 1},
     )
 
     assert export["target"] == "example.com"
@@ -85,6 +102,11 @@ def test_build_json_export_includes_expected_structure() -> None:
             }
         ]
     }
+    assert export["investigation_guidance_summary"] == {"General": 1}
+    assert export["investigation_guidance"][0]["url"] == "https://a.example.com"
+    assert export["investigation_guidance"][0]["checks"][0]["title"] == (
+        "Security headers review"
+    )
     assert export["screenshot_paths"] == {
         "https://a.example.com": "reports/screenshots/example-com/a.png",
         "https://b.example.com": "reports/screenshots/example-com/b.png",

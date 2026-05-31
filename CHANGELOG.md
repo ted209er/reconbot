@@ -28,6 +28,8 @@ Reconbot uses simple semantic versioning:
 - Expanded passive technology categorization with actionable asset categories,
   deterministic confidence scoring, category summaries, category-sorted
   markdown output, and structured JSON export metadata.
+- Added deterministic investigation guidance for safe manual follow-up using
+  existing passive findings, with markdown plans and structured JSON exports.
 
 ## [0.1.0] - Initial MVP
 

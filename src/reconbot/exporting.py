@@ -7,6 +7,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+from reconbot.guidance import AssetGuidance
 from reconbot.models import ReconReport
 from reconbot.prioritization import PrioritizedAsset
 from reconbot.technology_categories import CATEGORY_ORDER, AssetCategory
@@ -34,6 +35,8 @@ def build_json_export(
     profile: str = "standard",
     asset_categories: Mapping[str, list[AssetCategory]] | None = None,
     asset_category_summary: Mapping[str, int] | None = None,
+    investigation_guidance: list[AssetGuidance] | None = None,
+    guidance_summary: Mapping[str, int] | None = None,
 ) -> dict[str, Any]:
     """Build a deterministic JSON-serializable export."""
     screenshot_paths = {url: str(path) for url, path in sorted(screenshots.items())}
@@ -61,6 +64,8 @@ def build_json_export(
         "technology_category_summary": dict(technology_category_summary),
         "asset_categories": _asset_categories(asset_categories or {}),
         "asset_category_summary": dict(asset_category_summary or {}),
+        "investigation_guidance": _investigation_guidance(investigation_guidance or []),
+        "investigation_guidance_summary": dict(guidance_summary or {}),
         "technology_changes": _sorted_change_lists(technology_diff),
         "screenshot_paths": screenshot_paths,
         "screenshot_changes": _sorted_change_lists(screenshot_diff),
@@ -131,3 +136,25 @@ def _asset_categories(
         ]
         for url, matches in sorted(assets.items())
     }
+
+
+def _investigation_guidance(guidance: list[AssetGuidance]) -> list[dict[str, object]]:
+    """Return deterministic JSON-serializable investigation guidance."""
+    return [
+        {
+            "url": asset.url,
+            "reasons": list(asset.reasons),
+            "checks": [
+                {
+                    "category": check.category,
+                    "title": check.title,
+                    "why_it_matters": check.why_it_matters,
+                    "safe_manual_approach": check.safe_manual_approach,
+                    "evidence_to_collect": check.evidence_to_collect,
+                    "safety_note": check.safety_note,
+                }
+                for check in asset.checks
+            ],
+        }
+        for asset in guidance
+    ]

@@ -58,6 +58,57 @@ reconbot --domain example.com --profile deep
 - `make validate`
 - `git diff --check`
 
+## Investigation Guidance
+
+### Purpose
+
+Use existing passive findings to suggest safe, explainable manual investigation
+checks for authorized security research.
+
+### Files Added
+
+- `src/reconbot/guidance.py`
+- `tests/test_guidance.py`
+
+### Files Modified
+
+- `src/reconbot/main.py`
+- `src/reconbot/reporting.py`
+- `src/reconbot/exporting.py`
+- `tests/test_reporting.py`
+- `tests/test_exporting.py`
+- `README.md`
+- `docs/architecture.md`
+- `CHANGELOG.md`
+- `docs/feature-history.md`
+
+### New Commands
+
+- None.
+
+### Design Decisions
+
+- Generate suggestions from existing findings only: asset categories,
+  technologies, URL keywords, high-interest score, new asset status, and
+  screenshot availability.
+- Keep the guidance engine rule-based, deterministic, typed, and explainable.
+- Include a title, rationale, safe manual approach, evidence guidance, and
+  explicit safety note for every check.
+- Scope all guidance to authorized targets, owned test accounts, and
+  non-destructive validation.
+- Exclude exploit payloads, automated scanning, brute forcing, credential
+  testing, destructive checks, and requests against third-party user data.
+
+### Follow-Up Opportunities
+
+- Add optional category-based guidance filtering if reports become too verbose.
+- Add report-level guidance severity only after a separate scoring review.
+
+### Verification Results
+
+- `make validate`
+- `git diff --check`
+
 ## Technology Categorization V2
 
 ### Purpose
