@@ -5,8 +5,8 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
+from reconbot.tools.gowitness import run_screenshot_capture
 from reconbot.utils.normalize import safe_filename
-from reconbot.utils.subprocess_runner import run_command
 
 LOGGER = logging.getLogger(__name__)
 DEFAULT_BINARY = "gowitness"
@@ -27,17 +27,10 @@ def capture_screenshot(
 
     output_dir.mkdir(parents=True, exist_ok=True)
     screenshot_path = output_dir / f"{safe_filename(target)}.png"
-    result = run_command(
-        "gowitness",
-        [
-            binary,
-            "scan",
-            "single",
-            "--url",
-            target,
-            "--screenshot-path",
-            str(output_dir),
-        ],
+    result = run_screenshot_capture(
+        target,
+        output_dir=output_dir,
+        binary=binary,
         timeout=timeout,
     )
     if not result.success:

@@ -6,12 +6,23 @@ import json
 import logging
 from collections import Counter
 from collections.abc import Mapping
+from dataclasses import dataclass, field
 
-from reconbot.utils.subprocess_runner import run_command
+from reconbot.tools.httpx import run_fingerprint_probe
 
 LOGGER = logging.getLogger(__name__)
 DEFAULT_BINARY = "httpx"
 DEFAULT_TIMEOUT_SECONDS = 120.0
+
+
+@dataclass(frozen=True, slots=True)
+class PassiveAssetMetadata:
+    """Passive metadata returned by httpx for one asset."""
+
+    technologies: list[str] = field(default_factory=list)
+    response_headers: dict[str, str] = field(default_factory=dict)
+    title: str = ""
+    platform_indicators: list[str] = field(default_factory=list)
 
 
 def fingerprint_url(
@@ -21,20 +32,26 @@ def fingerprint_url(
     timeout: float = DEFAULT_TIMEOUT_SECONDS,
 ) -> list[str]:
     """Use httpx passive technology detection for one live URL."""
+    return fingerprint_url_metadata(url, binary=binary, timeout=timeout).technologies
+
+
+def fingerprint_url_metadata(
+    url: str,
+    *,
+    binary: str = DEFAULT_BINARY,
+    timeout: float = DEFAULT_TIMEOUT_SECONDS,
+) -> PassiveAssetMetadata:
+    """Use httpx to collect passive metadata for one live URL."""
     target = url.strip()
     if not target:
-        return []
+        return PassiveAssetMetadata()
 
-    result = run_command(
-        "httpx",
-        [binary, "-silent", "-json", "-tech-detect", "-u", target],
-        timeout=timeout,
-    )
+    result = run_fingerprint_probe(target, binary=binary, timeout=timeout)
     if not result.success:
         LOGGER.warning("httpx technology fingerprinting failed for %s", target)
-        return []
+        return PassiveAssetMetadata()
 
-    return _parse_httpx_technologies(result.output)
+    return _parse_httpx_metadata(result.output)
 
 
 def fingerprint_urls(
@@ -42,6 +59,7 @@ def fingerprint_urls(
     *,
     binary: str = DEFAULT_BINARY,
     timeout: float = DEFAULT_TIMEOUT_SECONDS,
+    metadata: dict[str, PassiveAssetMetadata] | None = None,
 ) -> dict[str, list[str]]:
     """Fingerprint live URLs and return technologies keyed by URL."""
     fingerprints: dict[str, list[str]] = {}
@@ -49,8 +67,10 @@ def fingerprint_urls(
         target = url.strip()
         if not target:
             continue
-        technologies = fingerprint_url(target, binary=binary, timeout=timeout)
-        fingerprints[target] = technologies
+        asset_metadata = fingerprint_url_metadata(target, binary=binary, timeout=timeout)
+        fingerprints[target] = asset_metadata.technologies
+        if metadata is not None:
+            metadata[target] = asset_metadata
     return fingerprints
 
 
@@ -64,7 +84,15 @@ def summarize_technologies(fingerprints: Mapping[str, list[str]]) -> dict[str, i
 
 def _parse_httpx_technologies(output: str) -> list[str]:
     """Parse httpx JSON output into sorted unique technology names."""
+    return _parse_httpx_metadata(output).technologies
+
+
+def _parse_httpx_metadata(output: str) -> PassiveAssetMetadata:
+    """Parse httpx JSON output into passive asset metadata."""
     technologies: set[str] = set()
+    response_headers: dict[str, str] = {}
+    titles: set[str] = set()
+    platform_indicators: set[str] = set()
     for line in output.splitlines():
         if not (payload := line.strip()):
             continue
@@ -73,7 +101,18 @@ def _parse_httpx_technologies(output: str) -> list[str]:
         except json.JSONDecodeError:
             continue
         technologies.update(_extract_technology_values(data))
-    return sorted(technologies)
+        response_headers.update(_extract_headers(data))
+        titles.update(_as_strings(data.get("title")) if isinstance(data, dict) else [])
+        if isinstance(data, dict):
+            platform_indicators.update(_as_strings(data.get("cdn_name")))
+            platform_indicators.update(_as_strings(data.get("cdn")))
+            platform_indicators.update(_as_strings(data.get("cname")))
+    return PassiveAssetMetadata(
+        technologies=sorted(technologies),
+        response_headers=dict(sorted(response_headers.items())),
+        title=sorted(titles)[0] if titles else "",
+        platform_indicators=sorted(platform_indicators),
+    )
 
 
 def _extract_technology_values(data: object) -> list[str]:
@@ -103,3 +142,18 @@ def _as_strings(value: object) -> list[str]:
     if isinstance(value, list):
         return [item.strip() for item in value if isinstance(item, str) and item.strip()]
     return []
+
+
+def _extract_headers(data: object) -> dict[str, str]:
+    """Extract string response headers from common httpx JSON fields."""
+    if not isinstance(data, dict):
+        return {}
+    for key in ("header", "response_header"):
+        value = data.get(key)
+        if isinstance(value, dict):
+            return {
+                str(name): header_value
+                for name, header_value in value.items()
+                if isinstance(header_value, str)
+            }
+    return {}

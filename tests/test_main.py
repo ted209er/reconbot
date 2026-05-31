@@ -7,6 +7,7 @@ from pytest import MonkeyPatch
 
 from reconbot import main
 from reconbot.config import Config
+from reconbot.fingerprinting import PassiveAssetMetadata
 from reconbot.history import (
     get_previous_screenshots,
     get_previous_technologies,
@@ -97,6 +98,7 @@ def test_run_workflow_calls_wrappers_and_writes_outputs(
         *,
         binary: str,
         timeout: float,
+        metadata: dict[str, PassiveAssetMetadata] | None = None,
     ) -> dict[str, list[str]]:
         calls.append(("fingerprinting", urls, binary, timeout))
         return {"https://a.example.com": ["Nginx"], "http://b.example.com": ["WordPress"]}
@@ -447,7 +449,7 @@ def test_run_workflow_reports_diff_from_previous_run(
     monkeypatch.setattr(
         main,
         "fingerprint_urls",
-        lambda urls, *, binary, timeout: {"https://beta.example.com": ["FastAPI"]},
+        lambda urls, *, binary, timeout, metadata=None: {"https://beta.example.com": ["FastAPI"]},
     )
 
     main.run_workflow("example.com", config_path, verbose=False)

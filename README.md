@@ -234,6 +234,14 @@ live URLs.
 Those technologies are grouped into simple categories in the report and JSON
 export, including Infrastructure, Framework, CMS, Identity, Language, and
 Unknown.
+Reconbot also classifies discovered assets into actionable passive categories:
+Authentication, API, Administrative, Commerce, CDN, Marketing, Documentation,
+Developer Tools, Source Control, Monitoring, Cloud Infrastructure, and SaaS
+Platforms. Asset classification uses observed technology fingerprints, URLs,
+and optional passive response headers, page titles, and known platform
+indicators. Matches include `low`, `medium`, or `high` confidence and are sorted
+by category in markdown reports. JSON exports include the structured matches,
+their indicators, and per-category asset totals.
 Screenshots for live URLs are stored under
 `reports/screenshots/<safe-target-name>/`, or
 `<workspace>/screenshots/<safe-target-name>/` for workspace runs, and linked

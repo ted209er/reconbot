@@ -7,7 +7,11 @@ from pathlib import Path
 
 from reconbot.models import ReconReport
 from reconbot.prioritization import PrioritizedAsset
-from reconbot.technology_categories import CATEGORY_ORDER
+from reconbot.technology_categories import (
+    ASSET_CATEGORY_ORDER,
+    CATEGORY_ORDER,
+    AssetCategory,
+)
 
 
 def write_markdown_report(
@@ -26,6 +30,8 @@ def write_markdown_report(
     historical_url_sources: Mapping[str, int] | None = None,
     workspace_path: Path | None = None,
     profile: str = "standard",
+    asset_categories: Mapping[str, list[AssetCategory]] | None = None,
+    asset_category_summary: Mapping[str, int] | None = None,
 ) -> Path:
     """Write a plain markdown report to disk."""
     report_path.parent.mkdir(parents=True, exist_ok=True)
@@ -44,6 +50,8 @@ def write_markdown_report(
         historical_url_sources,
         workspace_path,
         profile,
+        asset_categories,
+        asset_category_summary,
     )
     report_path.write_text(markdown, encoding="utf-8")
     return report_path
@@ -64,6 +72,8 @@ def build_markdown_report(
     historical_url_sources: Mapping[str, int] | None = None,
     workspace_path: Path | None = None,
     profile: str = "standard",
+    asset_categories: Mapping[str, list[AssetCategory]] | None = None,
+    asset_category_summary: Mapping[str, int] | None = None,
 ) -> str:
     """Build a plain markdown report for a recon run."""
     lines = [
@@ -86,6 +96,8 @@ def build_markdown_report(
         lines.extend(_build_technology_summary_section(technology_summary))
     if technology_categories is not None:
         lines.extend(_build_technology_categories_section(technology_categories))
+    if asset_categories is not None:
+        lines.extend(_build_asset_categories_section(asset_categories, asset_category_summary))
     if technology_diff is not None:
         lines.extend(_build_technology_changes_section(technology_diff))
     if screenshots is not None:
@@ -201,6 +213,37 @@ def _build_technology_changes_section(technology_diff: Mapping[str, list[str]]) 
     lines.extend(_format_changed_items("+", added))
     lines.extend(_format_changed_items("-", removed))
     lines.append("")
+    return lines
+
+
+def _build_asset_categories_section(
+    asset_categories: Mapping[str, list[AssetCategory]],
+    category_summary: Mapping[str, int] | None,
+) -> list[str]:
+    """Build category-sorted passive asset classification lines."""
+    lines = ["## Asset Categories", "", "Category Summary:", ""]
+    summary = category_summary or {}
+    if summary:
+        for category in ASSET_CATEGORY_ORDER:
+            if count := summary.get(category):
+                lines.append(f"- {category}: {count} assets")
+    else:
+        lines.append("- None detected")
+    lines.append("")
+
+    for category in ASSET_CATEGORY_ORDER:
+        categorized_urls = [
+            (url, match)
+            for url, matches in sorted(asset_categories.items())
+            for match in matches
+            if match.category == category
+        ]
+        if not categorized_urls:
+            continue
+        lines.extend([f"{category}:", ""])
+        for url, match in categorized_urls:
+            lines.append(f"- {url} ({match.confidence.value} confidence)")
+        lines.append("")
     return lines
 
 

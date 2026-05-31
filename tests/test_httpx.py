@@ -75,3 +75,37 @@ def test_find_live_urls_skips_failed_results(monkeypatch: MonkeyPatch) -> None:
     result = httpx.find_live_urls(["bad.example.com", "good.example.com"])
 
     assert result == ["https://good.example.com"]
+
+
+def test_run_fingerprint_probe_uses_passive_metadata_flags(monkeypatch: MonkeyPatch) -> None:
+    calls: list[tuple[str, list[str], float | None]] = []
+
+    def fake_run_command(
+        name: str,
+        command: Sequence[str],
+        *,
+        timeout: float | None = None,
+    ) -> ToolResult:
+        calls.append((name, list(command), timeout))
+        return ToolResult(name=name, success=True, command=list(command))
+
+    monkeypatch.setattr(httpx, "run_command", fake_run_command)
+
+    httpx.run_fingerprint_probe("https://example.com", binary="custom-httpx", timeout=30)
+
+    assert calls == [
+        (
+            "httpx",
+            [
+                "custom-httpx",
+                "-silent",
+                "-json",
+                "-tech-detect",
+                "-title",
+                "-include-response-header",
+                "-u",
+                "https://example.com",
+            ],
+            30,
+        )
+    ]

@@ -3,6 +3,7 @@ from pathlib import Path
 from reconbot.models import ReconReport, ReconTarget, ToolResult
 from reconbot.prioritization import PrioritizedAsset
 from reconbot.reporting import build_markdown_report, write_markdown_report
+from reconbot.technology_categories import AssetCategory, Confidence
 
 
 def test_build_markdown_report_includes_summary_and_output_paths() -> None:
@@ -239,3 +240,33 @@ def test_build_markdown_report_includes_discovery_sources_summary() -> None:
     assert "Historical URLs:" in markdown
     assert "- gau: 425" in markdown
     assert "- waybackurls: 312" in markdown
+
+
+def test_build_markdown_report_sorts_assets_by_category() -> None:
+    report = ReconReport(
+        target=ReconTarget(domain="example.com", config_path=Path("config.yaml"))
+    )
+
+    markdown = build_markdown_report(
+        report,
+        {
+            "subdomains": Path("subdomains.txt"),
+            "live_hosts": Path("live_urls.txt"),
+            "historical_urls": Path("historical_urls.txt"),
+        },
+        asset_categories={
+            "https://docs.example.com": [
+                AssetCategory("Documentation", Confidence.MEDIUM, ("title: docs",)),
+            ],
+            "https://login.example.com": [
+                AssetCategory("Authentication", Confidence.HIGH, ("technology: Auth0",)),
+            ],
+        },
+        asset_category_summary={"Documentation": 1, "Authentication": 1},
+    )
+
+    assert "- Authentication: 1 assets" in markdown
+    assert "- Documentation: 1 assets" in markdown
+    assert "- https://login.example.com (high confidence)" in markdown
+    assert "- https://docs.example.com (medium confidence)" in markdown
+    assert markdown.index("Authentication:") < markdown.index("Documentation:")

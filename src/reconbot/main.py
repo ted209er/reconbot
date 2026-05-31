@@ -13,7 +13,7 @@ from reconbot.config import Config, get_bool, get_float, get_path, get_section, 
 from reconbot.config_loader import get_default_config_path, load_default_config
 from reconbot.doctor import HealthStatus, format_doctor_output, overall_status, run_doctor
 from reconbot.exporting import build_json_export, write_json_export
-from reconbot.fingerprinting import fingerprint_urls, summarize_technologies
+from reconbot.fingerprinting import PassiveAssetMetadata, fingerprint_urls, summarize_technologies
 from reconbot.history import (
     DEFAULT_DATABASE_PATH,
     calculate_added_items,
@@ -39,7 +39,12 @@ from reconbot.prioritization import prioritize_assets
 from reconbot.profiles import ProfileToolSettings, ScanProfile, apply_profile
 from reconbot.reporting import write_markdown_report
 from reconbot.screenshots import capture_screenshots
-from reconbot.technology_categories import categorize_technologies, summarize_categories
+from reconbot.technology_categories import (
+    categorize_assets,
+    categorize_technologies,
+    summarize_asset_categories,
+    summarize_categories,
+)
 from reconbot.tools.assetfinder import find_subdomains as find_assetfinder_subdomains
 from reconbot.tools.crtsh import find_subdomains as find_crtsh_subdomains
 from reconbot.tools.detection import MissingExternalToolsError, validate_required_tools
@@ -155,17 +160,31 @@ def run_workflow(
     if httpx_settings.enabled:
         _print_stage("Technology fingerprinting")
         logger.info("Running technology fingerprinting")
+        passive_metadata: dict[str, PassiveAssetMetadata] = {}
         technology_fingerprints = fingerprint_urls(
             live_urls,
             binary=httpx_settings.binary,
             timeout=httpx_settings.timeout,
+            metadata=passive_metadata,
         )
     else:
         logger.info("Skipping technology fingerprinting because httpx is disabled")
+        passive_metadata = {}
         technology_fingerprints = {}
     technology_summary = summarize_technologies(technology_fingerprints)
     technology_categories = categorize_technologies(technology_summary)
     technology_category_summary = summarize_categories(technology_categories)
+    asset_categories = categorize_assets(
+        technology_fingerprints,
+        response_headers={
+            url: metadata.response_headers for url, metadata in passive_metadata.items()
+        },
+        page_titles={url: metadata.title for url, metadata in passive_metadata.items()},
+        platform_indicators={
+            url: metadata.platform_indicators for url, metadata in passive_metadata.items()
+        },
+    )
+    asset_category_summary = summarize_asset_categories(asset_categories)
     technologies_path = processed_dir / "technologies.txt"
     _write_lines(technologies_path, _format_technology_lines(technology_fingerprints))
 
@@ -299,6 +318,8 @@ def run_workflow(
         _source_counts(historical_url_sources),
         workspace.root if workspace is not None else None,
         profile.value,
+        asset_categories,
+        asset_category_summary,
     )
     json_export_path = json_exports_dir / f"{safe_filename(target.domain)}.json"
     if write_json:
@@ -321,6 +342,8 @@ def run_workflow(
             historical_url_sources=_source_counts(historical_url_sources),
             workspace_path=workspace.root if workspace is not None else None,
             profile=profile.value,
+            asset_categories=asset_categories,
+            asset_category_summary=asset_category_summary,
         )
         write_json_export(json_export, json_export_path)
         logger.info("Wrote JSON export to %s", json_export_path)

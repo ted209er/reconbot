@@ -57,3 +57,64 @@ reconbot --domain example.com --profile deep
 
 - `make validate`
 - `git diff --check`
+
+## Technology Categorization V2
+
+### Purpose
+
+Make passive reconnaissance reports more actionable by classifying discovered
+assets into security-relevant categories with human-readable confidence.
+
+### Files Added
+
+- `src/reconbot/tools/gowitness.py`
+- `tests/test_gowitness.py`
+
+### Files Modified
+
+- `src/reconbot/technology_categories.py`
+- `src/reconbot/fingerprinting.py`
+- `src/reconbot/tools/httpx.py`
+- `src/reconbot/screenshots.py`
+- `src/reconbot/main.py`
+- `src/reconbot/reporting.py`
+- `src/reconbot/exporting.py`
+- `tests/test_technology_categories.py`
+- `tests/test_fingerprinting.py`
+- `tests/test_httpx.py`
+- `tests/test_screenshots.py`
+- `tests/test_reporting.py`
+- `tests/test_exporting.py`
+- `README.md`
+- `docs/architecture.md`
+- `CHANGELOG.md`
+- `docs/feature-history.md`
+
+### New Commands
+
+- None.
+
+### Design Decisions
+
+- Preserve the existing technology categorization and prioritization APIs.
+- Add asset categories for Authentication, API, Administrative, Commerce, CDN,
+  Marketing, Documentation, Developer Tools, Source Control, Monitoring, Cloud
+  Infrastructure, and SaaS Platforms.
+- Classify only passive metadata: observed technology fingerprints, URLs, and
+  optional response headers, page titles, and known platform indicators.
+- Record deterministic `low`, `medium`, or `high` confidence from signal
+  quality and diversity.
+- Include category summaries and category-sorted asset lists in markdown, plus
+  structured categories, confidence, and indicators in JSON exports.
+
+### Follow-Up Opportunities
+
+- Preserve more passive metadata from future wrapper output when supported by
+  installed tool versions.
+- Add category-aware prioritization only after scoring changes are explicitly
+  reviewed.
+
+### Verification Results
+
+- `make validate`
+- `git diff --check`

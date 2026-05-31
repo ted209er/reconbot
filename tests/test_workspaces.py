@@ -4,6 +4,7 @@ from pathlib import Path
 from pytest import MonkeyPatch
 
 from reconbot import main
+from reconbot.fingerprinting import PassiveAssetMetadata
 from reconbot.history import list_recent_runs
 from reconbot.workspaces import ensure_workspace, resolve_workspace, workspace_paths
 
@@ -83,6 +84,7 @@ def test_run_workflow_writes_artifacts_to_workspace(
         *,
         binary: str,
         timeout: float,
+        metadata: dict[str, PassiveAssetMetadata] | None = None,
     ) -> dict[str, list[str]]:
         return {"https://app.example.com": ["Nginx"]}
 
