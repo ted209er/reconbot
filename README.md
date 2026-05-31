@@ -16,7 +16,7 @@ modules must preserve this boundary.
 ## Current Architecture
 
 - `src/reconbot/cli.py` builds the argparse CLI and supports `--domain`,
-  `--config`, `--workspace`, and `--verbose`.
+  `--config`, `--workspace`, `--profile`, and `--verbose`.
 - `src/reconbot/config.py` loads YAML configuration with `pathlib` and typed
   helper functions.
 - `src/reconbot/config_loader.py` loads the packaged default configuration when
@@ -25,6 +25,8 @@ modules must preserve this boundary.
 - `src/reconbot/models.py` defines `ReconTarget`, `ToolResult`, and
   `ReconReport`.
 - `src/reconbot/main.py` contains the placeholder orchestration flow.
+- `src/reconbot/profiles.py` applies lightweight passive scan profiles to
+  existing tool settings.
 - `src/reconbot/workspaces.py` resolves and creates optional engagement
   workspaces for generated recon data.
 - `src/reconbot/utils/subprocess_runner.py` wraps `subprocess.run` safely,
@@ -195,6 +197,28 @@ binaries, progress between stages, summary counts, and the generated report and
 output file locations.
 It also prints `Using packaged default config` when `--config` is omitted, or
 `Using config:` with the custom path when `--config` is supplied.
+
+## Scan Profiles
+
+Choose a passive reconnaissance profile with `--profile`. The default is
+`standard`:
+
+```bash
+reconbot --domain example.com --profile light
+reconbot --domain example.com --profile standard
+reconbot --domain example.com --profile deep
+```
+
+| Profile | Behavior |
+| --- | --- |
+| `light` | Uses core passive sources, disables screenshots, and caps tool timeouts at 60 seconds. |
+| `standard` | Preserves the configured default workflow. |
+| `deep` | Enables all currently supported passive sources and screenshots, with longer timeout floors. |
+
+Profiles adjust existing passive behavior only. They do not add vulnerability
+scanning, exploitation, brute forcing, credential attacks, directory
+enumeration, or port scanning. The selected profile is shown at startup and
+stored in reports, JSON exports, and run history.
 
 The workflow runs passive subdomain discovery, live host detection, passive
 technology fingerprinting, screenshot capture, and historical URL collection for the authorized domain.

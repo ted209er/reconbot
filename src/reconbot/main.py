@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 import sys
 from collections.abc import Iterable, Sequence
-from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -37,6 +36,7 @@ from reconbot.history import (
 from reconbot.logging_config import setup_logging
 from reconbot.models import ReconReport, ReconTarget, ToolResult
 from reconbot.prioritization import prioritize_assets
+from reconbot.profiles import ProfileToolSettings, ScanProfile, apply_profile
 from reconbot.reporting import write_markdown_report
 from reconbot.screenshots import capture_screenshots
 from reconbot.technology_categories import categorize_technologies, summarize_categories
@@ -64,13 +64,7 @@ DEFAULT_TOOL_TIMEOUTS = {"screenshots": 300.0}
 HISTORY_DATABASE_PATH = DEFAULT_DATABASE_PATH
 
 
-@dataclass(frozen=True, slots=True)
-class ToolSettings:
-    """Runtime settings for one external tool."""
-
-    enabled: bool
-    binary: str
-    timeout: float
+ToolSettings = ProfileToolSettings
 
 
 def run_workflow(
@@ -79,12 +73,13 @@ def run_workflow(
     verbose: bool,
     run_name: str = "",
     workspace_path: Path | None = None,
+    profile: ScanProfile = ScanProfile.STANDARD,
 ) -> ReconReport:
     """Run the recon orchestration workflow."""
     config, effective_config_path, using_packaged_config = _load_runtime_config(config_path)
     logging_section = get_section(config, "logging")
     output_section = get_section(config, "output")
-    tool_settings = _load_tool_settings(get_section(config, "tools"))
+    tool_settings = apply_profile(_load_tool_settings(get_section(config, "tools")), profile)
     workspace = _prepare_workspace(workspace_path)
     log_file = get_path(logging_section, "file", Path("logs/reconbot.log"))
     processed_dir = (
@@ -120,6 +115,7 @@ def run_workflow(
         run_name,
         workspace,
         using_packaged_config,
+        profile,
     )
     _print_tool_settings(tool_settings)
     logger.info("Starting recon workflow for %s", target.domain)
@@ -263,6 +259,7 @@ def run_workflow(
         subdomain_count=len(subdomains),
         live_url_count=len(live_urls),
         url_count=len(historical_urls),
+        profile=profile.value,
         database_path=database_path,
     )
     record_subdomains(run_id=run_id, subdomains=subdomains, database_path=database_path)
@@ -301,6 +298,7 @@ def run_workflow(
         _source_counts(subdomain_sources),
         _source_counts(historical_url_sources),
         workspace.root if workspace is not None else None,
+        profile.value,
     )
     json_export_path = json_exports_dir / f"{safe_filename(target.domain)}.json"
     if write_json:
@@ -322,6 +320,7 @@ def run_workflow(
             subdomain_sources=_source_counts(subdomain_sources),
             historical_url_sources=_source_counts(historical_url_sources),
             workspace_path=workspace.root if workspace is not None else None,
+            profile=profile.value,
         )
         write_json_export(json_export, json_export_path)
         logger.info("Wrote JSON export to %s", json_export_path)
@@ -456,10 +455,12 @@ def _print_startup_banner(
     run_name: str,
     workspace: WorkspacePaths | None,
     using_packaged_config: bool,
+    profile: ScanProfile,
 ) -> None:
     """Print a concise startup banner."""
     print("Reconbot")
     print(f"Target: {domain}")
+    print(f"Profile: {profile.value}")
     if run_name:
         print(f"Run name: {run_name}")
     if using_packaged_config:
@@ -559,6 +560,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             verbose=args.verbose,
             run_name=args.run_name,
             workspace_path=args.workspace,
+            profile=ScanProfile(args.profile),
         )
     except FileNotFoundError:
         print(f"Error: config file not found: {args.config}", file=sys.stderr)

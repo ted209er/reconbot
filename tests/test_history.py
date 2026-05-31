@@ -53,6 +53,7 @@ def test_record_run_and_list_recent_runs(tmp_path: Path) -> None:
     assert len(runs) == 1
     assert runs[0].target == "example.com"
     assert runs[0].run_name == ""
+    assert runs[0].profile == "standard"
     assert runs[0].started_at == started_at.isoformat()
     assert runs[0].completed_at == completed_at.isoformat()
     assert runs[0].subdomain_count == 2
@@ -98,6 +99,24 @@ def test_record_run_stores_run_name(tmp_path: Path) -> None:
     runs = list_recent_runs(database_path=database_path)
 
     assert runs[0].run_name == "daily"
+
+
+def test_record_run_stores_profile(tmp_path: Path) -> None:
+    database_path = tmp_path / "reconbot.db"
+    started_at = datetime(2026, 5, 29, 12, 0, tzinfo=UTC)
+
+    record_run(
+        target="example.com",
+        profile="deep",
+        started_at=started_at,
+        completed_at=started_at + timedelta(seconds=5),
+        subdomain_count=0,
+        live_url_count=0,
+        url_count=0,
+        database_path=database_path,
+    )
+
+    assert list_recent_runs(database_path=database_path)[0].profile == "deep"
 
 
 def test_records_and_reads_previous_items_for_latest_target_run(tmp_path: Path) -> None:

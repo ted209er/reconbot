@@ -28,6 +28,7 @@ def test_parse_args_accepts_domain_config_verbose_and_run_name(tmp_path: Path) -
     assert args.verbose is True
     assert args.run_name == "daily"
     assert args.workspace == tmp_path / "workspace"
+    assert args.profile == "standard"
 
 
 def test_parse_args_uses_default_config() -> None:
@@ -37,6 +38,7 @@ def test_parse_args_uses_default_config() -> None:
     assert args.verbose is False
     assert args.run_name == ""
     assert args.workspace is None
+    assert args.profile == "standard"
 
 
 def test_parse_args_rejects_invalid_domain() -> None:
@@ -54,3 +56,14 @@ def test_parse_args_accepts_doctor_workspace(tmp_path: Path) -> None:
 
     assert args.command == "doctor"
     assert args.workspace == tmp_path / "workspace"
+
+
+def test_parse_args_accepts_scan_profile() -> None:
+    args = parse_args(["--domain", "example.com", "--profile", "deep"])
+
+    assert args.profile == "deep"
+
+
+def test_parse_args_rejects_unknown_scan_profile() -> None:
+    with pytest.raises(SystemExit):
+        parse_args(["--domain", "example.com", "--profile", "active"])

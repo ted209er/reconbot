@@ -23,6 +23,8 @@ Reconbot uses a small `src` layout so application code is importable as the
 - `src/reconbot/technology_categories.py` groups fingerprinted technologies into
   simple report and scoring categories.
 - `src/reconbot/prioritization.py` owns rule-based asset prioritization.
+- `src/reconbot/profiles.py` owns passive scan profile overlays for existing
+  tool settings.
 - `src/reconbot/screenshots.py` owns passive screenshot capture.
 - `src/reconbot/history.py` owns the lightweight SQLite run history.
 - `src/reconbot/utils/` contains shared helpers that are not recon tools.
@@ -101,6 +103,22 @@ and invalid workspace path failures are errors.
 
 The doctor command must not contact targets, invoke recon tools, perform recon,
 or create dashboards, remote checks, or environment-specific configuration.
+
+## Scan Profiles
+
+`src/reconbot/profiles.py` defines the `light`, `standard`, and `deep` passive
+reconnaissance profiles. Profiles adjust only existing tool enablement and
+timeouts:
+
+- `light` keeps core passive sources, disables screenshots, and caps timeouts.
+- `standard` preserves configured behavior.
+- `deep` enables every currently supported passive source and screenshots, with
+  longer timeout floors.
+
+The selected profile is printed at startup and stored in markdown reports, JSON
+exports, and SQLite run history. Profiles do not add vulnerability scanning,
+exploitation, brute forcing, credential attacks, directory enumeration, port
+scanning, new external tools, or active testing behavior.
 
 ## Export Layer
 

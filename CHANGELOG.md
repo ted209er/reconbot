@@ -23,6 +23,8 @@ Reconbot uses simple semantic versioning:
 - Added `reconbot doctor` for local environment health checks covering Python,
   packaged config loading, SQLite, optional workspace structure, and external
   tool availability.
+- Added passive `light`, `standard`, and `deep` scan profiles with profile
+  metadata in startup output, reports, JSON exports, and SQLite run history.
 
 ## [0.1.0] - Initial MVP
 

@@ -31,12 +31,14 @@ def build_json_export(
     subdomain_sources: Mapping[str, int],
     historical_url_sources: Mapping[str, int],
     workspace_path: Path | None = None,
+    profile: str = "standard",
 ) -> dict[str, Any]:
     """Build a deterministic JSON-serializable export."""
     screenshot_paths = {url: str(path) for url, path in sorted(screenshots.items())}
     return {
         "target": report.target.domain,
         "run_name": run_name,
+        "profile": profile,
         "started_at": report.started_at.isoformat(),
         "completed_at": report.finished_at.isoformat() if report.finished_at else None,
         "workspace": str(workspace_path) if workspace_path is not None else None,

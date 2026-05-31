@@ -25,6 +25,7 @@ def write_markdown_report(
     subdomain_sources: Mapping[str, int] | None = None,
     historical_url_sources: Mapping[str, int] | None = None,
     workspace_path: Path | None = None,
+    profile: str = "standard",
 ) -> Path:
     """Write a plain markdown report to disk."""
     report_path.parent.mkdir(parents=True, exist_ok=True)
@@ -42,6 +43,7 @@ def write_markdown_report(
         subdomain_sources,
         historical_url_sources,
         workspace_path,
+        profile,
     )
     report_path.write_text(markdown, encoding="utf-8")
     return report_path
@@ -61,6 +63,7 @@ def build_markdown_report(
     subdomain_sources: Mapping[str, int] | None = None,
     historical_url_sources: Mapping[str, int] | None = None,
     workspace_path: Path | None = None,
+    profile: str = "standard",
 ) -> str:
     """Build a plain markdown report for a recon run."""
     lines = [
@@ -68,6 +71,7 @@ def build_markdown_report(
         "",
         f"- Target domain: `{report.target.domain}`",
         f"- Run name: `{run_name or 'default'}`",
+        f"- Profile: `{profile}`",
         f"- Execution timestamp: `{report.started_at.isoformat()}`",
         f"- Subdomain count: {_result_count(report, 'subfinder')}",
         f"- Live host count: {_result_count(report, 'httpx')}",

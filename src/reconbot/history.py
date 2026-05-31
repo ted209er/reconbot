@@ -17,6 +17,7 @@ class RunHistoryEntry:
     id: int
     target: str
     run_name: str
+    profile: str
     started_at: str
     completed_at: str
     subdomain_count: int
@@ -34,6 +35,7 @@ def initialize_database(database_path: Path = DEFAULT_DATABASE_PATH) -> Path:
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 target TEXT NOT NULL,
                 run_name TEXT NOT NULL DEFAULT '',
+                profile TEXT NOT NULL DEFAULT 'standard',
                 started_at TEXT NOT NULL,
                 completed_at TEXT NOT NULL,
                 subdomain_count INTEGER NOT NULL,
@@ -47,6 +49,12 @@ def initialize_database(database_path: Path = DEFAULT_DATABASE_PATH) -> Path:
             table="runs",
             column="run_name",
             definition="TEXT NOT NULL DEFAULT ''",
+        )
+        _ensure_column(
+            connection,
+            table="runs",
+            column="profile",
+            definition="TEXT NOT NULL DEFAULT 'standard'",
         )
         connection.execute(
             """
@@ -100,6 +108,7 @@ def record_run(
     *,
     target: str,
     run_name: str = "",
+    profile: str = "standard",
     started_at: datetime,
     completed_at: datetime,
     subdomain_count: int,
@@ -115,17 +124,19 @@ def record_run(
             INSERT INTO runs (
                 target,
                 run_name,
+                profile,
                 started_at,
                 completed_at,
                 subdomain_count,
                 live_url_count,
                 url_count
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 target,
                 run_name,
+                profile,
                 started_at.isoformat(),
                 completed_at.isoformat(),
                 subdomain_count,
@@ -152,6 +163,7 @@ def list_recent_runs(
                 id,
                 target,
                 run_name,
+                profile,
                 started_at,
                 completed_at,
                 subdomain_count,
@@ -169,11 +181,12 @@ def list_recent_runs(
             id=int(row[0]),
             target=str(row[1]),
             run_name=str(row[2]),
-            started_at=str(row[3]),
-            completed_at=str(row[4]),
-            subdomain_count=int(row[5]),
-            live_url_count=int(row[6]),
-            url_count=int(row[7]),
+            profile=str(row[3]),
+            started_at=str(row[4]),
+            completed_at=str(row[5]),
+            subdomain_count=int(row[6]),
+            live_url_count=int(row[7]),
+            url_count=int(row[8]),
         )
         for row in rows
     ]

@@ -44,10 +44,12 @@ def test_build_json_export_includes_expected_structure() -> None:
         ],
         subdomain_sources={"subfinder": 2, "assetfinder": 1, "crtsh": 3},
         historical_url_sources={"gau": 1, "waybackurls": 2},
+        profile="deep",
     )
 
     assert export["target"] == "example.com"
     assert export["run_name"] == "daily"
+    assert export["profile"] == "deep"
     assert export["completed_at"] is not None
     assert export["report_path"] == "reports/example.com.md"
     assert export["counts"] == {
