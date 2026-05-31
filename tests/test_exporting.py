@@ -4,6 +4,7 @@ from pathlib import Path
 from reconbot.exporting import build_json_export, write_json_export
 from reconbot.models import ReconReport, ReconTarget
 from reconbot.prioritization import PrioritizedAsset
+from reconbot.technology_categories import AssetCategory, Confidence
 
 
 def test_build_json_export_includes_expected_structure() -> None:
@@ -45,6 +46,16 @@ def test_build_json_export_includes_expected_structure() -> None:
         subdomain_sources={"subfinder": 2, "assetfinder": 1, "crtsh": 3},
         historical_url_sources={"gau": 1, "waybackurls": 2},
         profile="deep",
+        asset_categories={
+            "https://a.example.com": [
+                AssetCategory(
+                    category="CDN",
+                    confidence=Confidence.HIGH,
+                    indicators=("technology: Cloudflare",),
+                ),
+            ],
+        },
+        asset_category_summary={"CDN": 1},
     )
 
     assert export["target"] == "example.com"
@@ -64,6 +75,16 @@ def test_build_json_export_includes_expected_structure() -> None:
     assert export["technology_summary"] == {"Cloudflare": 1, "Nginx": 2}
     assert export["technology_categories"] == {"Infrastructure": {"Cloudflare": 1, "Nginx": 2}}
     assert export["technology_category_summary"] == {"Infrastructure": 3}
+    assert export["asset_category_summary"] == {"CDN": 1}
+    assert export["asset_categories"] == {
+        "https://a.example.com": [
+            {
+                "category": "CDN",
+                "confidence": "high",
+                "indicators": ["technology: Cloudflare"],
+            }
+        ]
+    }
     assert export["screenshot_paths"] == {
         "https://a.example.com": "reports/screenshots/example-com/a.png",
         "https://b.example.com": "reports/screenshots/example-com/b.png",

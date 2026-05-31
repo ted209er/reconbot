@@ -26,9 +26,10 @@ class ProfileToolSettings:
 
 SettingsT = TypeVar("SettingsT", bound=ProfileToolSettings)
 LIGHT_TOOLS = frozenset({"subfinder", "httpx", "gau"})
-LIGHT_TIMEOUT_SECONDS = 60.0
-DEEP_TIMEOUT_SECONDS = 300.0
-DEEP_SCREENSHOT_TIMEOUT_SECONDS = 600.0
+PROFILE_TIMEOUT_SECONDS = {
+    ScanProfile.LIGHT: {"default": 60.0},
+    ScanProfile.DEEP: {"default": 300.0, "screenshots": 600.0},
+}
 
 
 def apply_profile(
@@ -43,7 +44,7 @@ def apply_profile(
             name: replace(
                 tool_settings,
                 enabled=tool_settings.enabled and name in LIGHT_TOOLS,
-                timeout=min(tool_settings.timeout, LIGHT_TIMEOUT_SECONDS),
+                timeout=min(tool_settings.timeout, _profile_timeout(profile, name)),
             )
             for name, tool_settings in settings.items()
         }
@@ -51,14 +52,13 @@ def apply_profile(
         name: replace(
             tool_settings,
             enabled=True,
-            timeout=max(
-                tool_settings.timeout,
-                (
-                    DEEP_SCREENSHOT_TIMEOUT_SECONDS
-                    if name == "screenshots"
-                    else DEEP_TIMEOUT_SECONDS
-                ),
-            ),
+            timeout=max(tool_settings.timeout, _profile_timeout(profile, name)),
         )
         for name, tool_settings in settings.items()
     }
+
+
+def _profile_timeout(profile: ScanProfile, tool_name: str) -> float:
+    """Return the configured timeout bound for a tool profile."""
+    timeouts = PROFILE_TIMEOUT_SECONDS[profile]
+    return timeouts.get(tool_name, timeouts["default"])

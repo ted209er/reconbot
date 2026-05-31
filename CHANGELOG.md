@@ -25,6 +25,9 @@ Reconbot uses simple semantic versioning:
   tool availability.
 - Added passive `light`, `standard`, and `deep` scan profiles with profile
   metadata in startup output, reports, JSON exports, and SQLite run history.
+- Expanded passive technology categorization with actionable asset categories,
+  deterministic confidence scoring, category summaries, category-sorted
+  markdown output, and structured JSON export metadata.
 
 ## [0.1.0] - Initial MVP
 

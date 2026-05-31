@@ -1,4 +1,3 @@
-from collections.abc import Sequence
 from pathlib import Path
 
 from pytest import MonkeyPatch
@@ -8,18 +7,19 @@ from reconbot.models import ToolResult
 
 
 def test_capture_screenshot_calls_gowitness(monkeypatch: MonkeyPatch, tmp_path: Path) -> None:
-    calls: list[tuple[str, list[str], float | None]] = []
+    calls: list[tuple[str, Path, str, float]] = []
 
-    def fake_run_command(
-        name: str,
-        command: Sequence[str],
+    def fake_run_screenshot_capture(
+        target: str,
         *,
-        timeout: float | None = None,
+        output_dir: Path,
+        binary: str,
+        timeout: float,
     ) -> ToolResult:
-        calls.append((name, list(command), timeout))
-        return ToolResult(name=name, success=True, command=list(command))
+        calls.append((target, output_dir, binary, timeout))
+        return ToolResult(name="gowitness", success=True)
 
-    monkeypatch.setattr(screenshots, "run_command", fake_run_command)
+    monkeypatch.setattr(screenshots, "run_screenshot_capture", fake_run_screenshot_capture)
 
     result = screenshots.capture_screenshot(
         "https://admin.example.com/login",
@@ -30,19 +30,7 @@ def test_capture_screenshot_calls_gowitness(monkeypatch: MonkeyPatch, tmp_path: 
 
     assert result == tmp_path / "https-admin-example-com-login.png"
     assert calls == [
-        (
-            "gowitness",
-            [
-                "custom-gowitness",
-                "scan",
-                "single",
-                "--url",
-                "https://admin.example.com/login",
-                "--screenshot-path",
-                str(tmp_path),
-            ],
-            30,
-        )
+        ("https://admin.example.com/login", tmp_path, "custom-gowitness", 30),
     ]
 
 
@@ -50,15 +38,16 @@ def test_capture_screenshot_returns_none_on_failure(
     monkeypatch: MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    def fake_run_command(
-        name: str,
-        command: Sequence[str],
+    def fake_run_screenshot_capture(
+        target: str,
         *,
-        timeout: float | None = None,
+        output_dir: Path,
+        binary: str,
+        timeout: float,
     ) -> ToolResult:
-        return ToolResult(name=name, success=False, command=list(command), return_code=1)
+        return ToolResult(name="gowitness", success=False, return_code=1)
 
-    monkeypatch.setattr(screenshots, "run_command", fake_run_command)
+    monkeypatch.setattr(screenshots, "run_screenshot_capture", fake_run_screenshot_capture)
 
     assert screenshots.capture_screenshot("https://example.com", output_dir=tmp_path) is None
 

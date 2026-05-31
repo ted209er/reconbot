@@ -1,5 +1,3 @@
-from collections.abc import Sequence
-
 from pytest import MonkeyPatch
 
 from reconbot import fingerprinting
@@ -7,23 +5,22 @@ from reconbot.models import ToolResult
 
 
 def test_fingerprint_url_uses_httpx_technology_detection(monkeypatch: MonkeyPatch) -> None:
-    calls: list[tuple[str, list[str], float | None]] = []
+    calls: list[tuple[str, str, float]] = []
 
-    def fake_run_command(
-        name: str,
-        command: Sequence[str],
+    def fake_run_fingerprint_probe(
+        target: str,
         *,
-        timeout: float | None = None,
+        binary: str,
+        timeout: float,
     ) -> ToolResult:
-        calls.append((name, list(command), timeout))
+        calls.append((target, binary, timeout))
         return ToolResult(
-            name=name,
+            name="httpx",
             success=True,
-            command=list(command),
             output='{"tech":["React","Next.js"],"webserver":"Nginx","cdn_name":"Cloudflare"}\n',
         )
 
-    monkeypatch.setattr(fingerprinting, "run_command", fake_run_command)
+    monkeypatch.setattr(fingerprinting, "run_fingerprint_probe", fake_run_fingerprint_probe)
 
     result = fingerprinting.fingerprint_url(
         "https://example.com",
@@ -33,39 +30,66 @@ def test_fingerprint_url_uses_httpx_technology_detection(monkeypatch: MonkeyPatc
 
     assert result == ["Cloudflare", "Next.js", "Nginx", "React"]
     assert calls == [
-        (
-            "httpx",
-            ["custom-httpx", "-silent", "-json", "-tech-detect", "-u", "https://example.com"],
-            30,
-        )
+        ("https://example.com", "custom-httpx", 30),
     ]
 
 
 def test_fingerprint_url_returns_empty_list_on_failed_command(
     monkeypatch: MonkeyPatch,
 ) -> None:
-    def fake_run_command(
-        name: str,
-        command: Sequence[str],
+    def fake_run_fingerprint_probe(
+        target: str,
         *,
-        timeout: float | None = None,
+        binary: str,
+        timeout: float,
     ) -> ToolResult:
-        return ToolResult(name=name, success=False, command=list(command), return_code=1)
+        return ToolResult(name="httpx", success=False, return_code=1)
 
-    monkeypatch.setattr(fingerprinting, "run_command", fake_run_command)
+    monkeypatch.setattr(fingerprinting, "run_fingerprint_probe", fake_run_fingerprint_probe)
 
     assert fingerprinting.fingerprint_url("https://example.com") == []
 
 
 def test_fingerprint_urls_skips_blank_targets(monkeypatch: MonkeyPatch) -> None:
-    def fake_fingerprint_url(url: str, *, binary: str, timeout: float) -> list[str]:
-        return [f"tech-for-{url}"]
+    def fake_fingerprint_url_metadata(
+        url: str,
+        *,
+        binary: str,
+        timeout: float,
+    ) -> fingerprinting.PassiveAssetMetadata:
+        return fingerprinting.PassiveAssetMetadata(technologies=[f"tech-for-{url}"])
 
-    monkeypatch.setattr(fingerprinting, "fingerprint_url", fake_fingerprint_url)
+    monkeypatch.setattr(fingerprinting, "fingerprint_url_metadata", fake_fingerprint_url_metadata)
 
     result = fingerprinting.fingerprint_urls(["https://a.example.com", "  "])
 
     assert result == {"https://a.example.com": ["tech-for-https://a.example.com"]}
+
+
+def test_fingerprint_url_metadata_extracts_passive_metadata(monkeypatch: MonkeyPatch) -> None:
+    def fake_run_fingerprint_probe(
+        target: str,
+        *,
+        binary: str,
+        timeout: float,
+    ) -> ToolResult:
+        return ToolResult(
+            name="httpx",
+            success=True,
+            output=(
+                '{"tech":["React"],"title":"API Docs","header":{"server":"cloudflare"},'
+                '"cdn_name":"Cloudflare","cname":["example.pages.dev"]}\n'
+            ),
+        )
+
+    monkeypatch.setattr(fingerprinting, "run_fingerprint_probe", fake_run_fingerprint_probe)
+
+    metadata = fingerprinting.fingerprint_url_metadata("https://example.com")
+
+    assert metadata.technologies == ["Cloudflare", "React"]
+    assert metadata.response_headers == {"server": "cloudflare"}
+    assert metadata.title == "API Docs"
+    assert metadata.platform_indicators == ["Cloudflare", "example.pages.dev"]
 
 
 def test_summarize_technologies_counts_one_technology_per_url() -> None:
@@ -82,19 +106,18 @@ def test_summarize_technologies_counts_one_technology_per_url() -> None:
 
 
 def test_fingerprint_url_ignores_invalid_json(monkeypatch: MonkeyPatch) -> None:
-    def fake_run_command(
-        name: str,
-        command: Sequence[str],
+    def fake_run_fingerprint_probe(
+        target: str,
         *,
-        timeout: float | None = None,
+        binary: str,
+        timeout: float,
     ) -> ToolResult:
         return ToolResult(
-            name=name,
+            name="httpx",
             success=True,
-            command=list(command),
             output='not json\n{"technologies":["Django"],"language":"Python"}\n',
         )
 
-    monkeypatch.setattr(fingerprinting, "run_command", fake_run_command)
+    monkeypatch.setattr(fingerprinting, "run_fingerprint_probe", fake_run_fingerprint_probe)
 
     assert fingerprinting.fingerprint_url("https://example.com") == ["Django", "Python"]

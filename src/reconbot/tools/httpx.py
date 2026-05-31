@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 
+from reconbot.models import ToolResult
 from reconbot.utils.subprocess_runner import run_command
 
 LOGGER = logging.getLogger(__name__)
@@ -47,3 +48,26 @@ def parse_live_urls(output: str) -> list[str]:
         and (candidate.startswith("http://") or candidate.startswith("https://"))
     }
     return sorted(urls)
+
+
+def run_fingerprint_probe(
+    target: str,
+    *,
+    binary: str = DEFAULT_BINARY,
+    timeout: float = DEFAULT_TIMEOUT_SECONDS,
+) -> ToolResult:
+    """Run one passive httpx metadata probe."""
+    return run_command(
+        "httpx",
+        [
+            binary,
+            "-silent",
+            "-json",
+            "-tech-detect",
+            "-title",
+            "-include-response-header",
+            "-u",
+            target,
+        ],
+        timeout=timeout,
+    )

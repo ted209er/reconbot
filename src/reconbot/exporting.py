@@ -9,7 +9,7 @@ from typing import Any
 
 from reconbot.models import ReconReport
 from reconbot.prioritization import PrioritizedAsset
-from reconbot.technology_categories import CATEGORY_ORDER
+from reconbot.technology_categories import CATEGORY_ORDER, AssetCategory
 
 
 def build_json_export(
@@ -32,6 +32,8 @@ def build_json_export(
     historical_url_sources: Mapping[str, int],
     workspace_path: Path | None = None,
     profile: str = "standard",
+    asset_categories: Mapping[str, list[AssetCategory]] | None = None,
+    asset_category_summary: Mapping[str, int] | None = None,
 ) -> dict[str, Any]:
     """Build a deterministic JSON-serializable export."""
     screenshot_paths = {url: str(path) for url, path in sorted(screenshots.items())}
@@ -57,6 +59,8 @@ def build_json_export(
         "technology_summary": dict(sorted(technology_summary.items())),
         "technology_categories": _nested_mapping(technology_categories),
         "technology_category_summary": dict(technology_category_summary),
+        "asset_categories": _asset_categories(asset_categories or {}),
+        "asset_category_summary": dict(asset_category_summary or {}),
         "technology_changes": _sorted_change_lists(technology_diff),
         "screenshot_paths": screenshot_paths,
         "screenshot_changes": _sorted_change_lists(screenshot_diff),
@@ -110,3 +114,20 @@ def _nested_mapping(values: Mapping[str, Mapping[str, int]]) -> dict[str, dict[s
         if outer_key not in nested:
             nested[outer_key] = dict(sorted(inner_values.items()))
     return nested
+
+
+def _asset_categories(
+    assets: Mapping[str, list[AssetCategory]],
+) -> dict[str, list[dict[str, object]]]:
+    """Return deterministic JSON-serializable asset categories."""
+    return {
+        url: [
+            {
+                "category": match.category,
+                "confidence": match.confidence.value,
+                "indicators": list(match.indicators),
+            }
+            for match in matches
+        ]
+        for url, matches in sorted(assets.items())
+    }

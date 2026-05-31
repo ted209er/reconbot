@@ -150,7 +150,11 @@ review interesting discovered assets first.
 
 `src/reconbot/fingerprinting.py` enriches live URLs with passive technology
 signals. It reuses the configured `httpx` binary with JSON technology detection
-options and parses only the returned metadata.
+options and parses only the returned metadata. The same passive `httpx` call
+retains response headers, page titles, and known platform indicators for asset
+categorization when those fields are present.
+Command construction and execution remain isolated in
+`src/reconbot/tools/httpx.py`.
 
 The fingerprinting layer records indicators such as web servers, CDNs, reverse
 proxies, frameworks, CMSs, and language hints. It does not perform vulnerability
@@ -169,11 +173,29 @@ Priority scoring uses the category layer as one more explainable signal: Identit
 technologies add a small bonus, while the rest of the scoring rules remain
 unchanged and deterministic.
 
+The same module also classifies assets into actionable passive categories:
+Authentication, API, Administrative, Commerce, CDN, Marketing, Documentation,
+Developer Tools, Source Control, Monitoring, Cloud Infrastructure, and SaaS
+Platforms. Asset classification consumes existing technology fingerprints and
+URLs, plus optional passive response headers, page titles, and known platform
+indicators when those values are available.
+
+Each asset category match records deterministic `low`, `medium`, or `high`
+confidence based on signal quality and diversity. Markdown reports show
+category summaries and category-sorted asset lists. JSON exports preserve the
+category, confidence, and matched indicators for automation.
+
+Categorization is metadata interpretation only. It does not fetch new pages,
+contact additional services, scan ports, enumerate directories, brute force,
+test credentials, detect vulnerabilities, or attempt exploitation.
+
 ## Screenshot Layer
 
 `src/reconbot/screenshots.py` captures screenshots for discovered live URLs
 using the configured external `gowitness` binary. Screenshots run after
 technology fingerprinting and before historical URL collection.
+Command construction and execution remain isolated in
+`src/reconbot/tools/gowitness.py`.
 
 Screenshot paths are deterministic and stored under
 `reports/screenshots/<safe-target-name>/`, or under
