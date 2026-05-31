@@ -258,6 +258,17 @@ new subdomains and new live URLs add 5 points each, new technologies add 4,
 Identity technologies add 3,
 admin/login/auth URL keywords add 3, API keywords add 2, and screenshots add 1.
 
+Reports and JSON exports also include a Suggested Manual Investigation Plan.
+This guidance is deterministic and explainable: it uses existing passive asset
+categories, technology fingerprints, URL keywords, high-interest scores, new
+asset status, and screenshot availability. Suggestions cover safe manual review
+for Authentication, API, Administrative, Staging/Dev, CMS, and General findings.
+
+Guidance is explicitly scoped to authorized targets, owned test accounts, and
+non-destructive validation. It does not include exploit payloads, automated
+vulnerability scanning, brute forcing, credential testing, destructive checks,
+or requests against third-party user data.
+
 Tool wrappers expect their external binaries to be installed separately and
 available on `PATH`. The current wrappers expect ProjectDiscovery `subfinder`
 and `httpx`, `assetfinder`, `gau`, `waybackurls`, `curl` for crt.sh lookups, and

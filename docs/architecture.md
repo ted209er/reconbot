@@ -23,6 +23,7 @@ Reconbot uses a small `src` layout so application code is importable as the
 - `src/reconbot/technology_categories.py` groups fingerprinted technologies into
   simple report and scoring categories.
 - `src/reconbot/prioritization.py` owns rule-based asset prioritization.
+- `src/reconbot/guidance.py` owns safe manual investigation suggestions.
 - `src/reconbot/profiles.py` owns passive scan profile overlays for existing
   tool settings.
 - `src/reconbot/screenshots.py` owns passive screenshot capture.
@@ -145,6 +146,26 @@ screenshot availability.
 Prioritization does not use machine learning, AI scoring, external services,
 risk databases, vulnerability detection, or exploit logic. It only helps users
 review interesting discovered assets first.
+
+## Investigation Guidance
+
+`src/reconbot/guidance.py` builds deterministic, explainable suggestions for
+safe manual follow-up. It consumes findings already produced by Reconbot:
+asset categories, technology fingerprints, URL keywords, high-interest scores,
+new live-asset status, and screenshot availability.
+
+The guidance layer provides manual review categories for Authentication, API,
+Administrative, Staging/Dev, CMS, and General findings. Every suggested check
+includes a title, why it matters, a safe manual approach, evidence to collect,
+and a safety note.
+
+Suggestions are explicitly limited to authorized targets, owned test accounts,
+and non-destructive validation. The module does not contact targets, invoke
+tools, add exploit payloads, scan for vulnerabilities, brute force, test
+credentials, perform destructive checks, or request third-party user data.
+
+Markdown reports include a `Suggested Manual Investigation Plan` section.
+JSON exports include `investigation_guidance` and a category summary.
 
 ## Fingerprinting Layer
 

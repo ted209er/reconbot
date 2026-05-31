@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from pathlib import Path
 
+from reconbot.guidance import AssetGuidance
 from reconbot.models import ReconReport
 from reconbot.prioritization import PrioritizedAsset
 from reconbot.technology_categories import (
@@ -32,6 +33,8 @@ def write_markdown_report(
     profile: str = "standard",
     asset_categories: Mapping[str, list[AssetCategory]] | None = None,
     asset_category_summary: Mapping[str, int] | None = None,
+    investigation_guidance: list[AssetGuidance] | None = None,
+    guidance_summary: Mapping[str, int] | None = None,
 ) -> Path:
     """Write a plain markdown report to disk."""
     report_path.parent.mkdir(parents=True, exist_ok=True)
@@ -52,6 +55,8 @@ def write_markdown_report(
         profile,
         asset_categories,
         asset_category_summary,
+        investigation_guidance,
+        guidance_summary,
     )
     report_path.write_text(markdown, encoding="utf-8")
     return report_path
@@ -74,6 +79,8 @@ def build_markdown_report(
     profile: str = "standard",
     asset_categories: Mapping[str, list[AssetCategory]] | None = None,
     asset_category_summary: Mapping[str, int] | None = None,
+    investigation_guidance: list[AssetGuidance] | None = None,
+    guidance_summary: Mapping[str, int] | None = None,
 ) -> str:
     """Build a plain markdown report for a recon run."""
     lines = [
@@ -104,6 +111,10 @@ def build_markdown_report(
         lines.extend(_build_screenshot_section(screenshots, screenshot_diff))
     if prioritized_assets is not None:
         lines.extend(_build_prioritized_asset_section(prioritized_assets))
+    if investigation_guidance is not None:
+        lines.extend(
+            _build_investigation_guidance_section(investigation_guidance, guidance_summary)
+        )
     if subdomain_sources is not None or historical_url_sources is not None:
         lines.extend(_build_discovery_sources_section(subdomain_sources, historical_url_sources))
     lines.extend(_build_output_file_section(output_files))
@@ -319,6 +330,42 @@ def _build_discovery_sources_section(
         for source, count in sorted(historical_url_sources.items()):
             lines.append(f"- {source}: {count}")
         lines.append("")
+    return lines
+
+
+def _build_investigation_guidance_section(
+    guidance: list[AssetGuidance],
+    guidance_summary: Mapping[str, int] | None,
+) -> list[str]:
+    """Build safe manual investigation guidance lines."""
+    lines = ["## Suggested Manual Investigation Plan", ""]
+    if not guidance:
+        lines.extend(["- No live assets available for manual review.", ""])
+        return lines
+
+    if guidance_summary:
+        lines.extend(["Check Summary:", ""])
+        for category, count in sorted(guidance_summary.items()):
+            lines.append(f"- {category}: {count} checks")
+        lines.append("")
+
+    for asset in guidance:
+        lines.extend([f"### {asset.url}", ""])
+        for reason in asset.reasons:
+            lines.append(f"- Evidence: {reason}")
+        lines.append("")
+        for check in asset.checks:
+            lines.extend(
+                [
+                    f"#### {check.category}: {check.title}",
+                    "",
+                    f"- Why it matters: {check.why_it_matters}",
+                    f"- Safe manual approach: {check.safe_manual_approach}",
+                    f"- Evidence to collect: {check.evidence_to_collect}",
+                    f"- Safety note: {check.safety_note}",
+                    "",
+                ]
+            )
     return lines
 
 
