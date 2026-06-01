@@ -8,6 +8,7 @@ from reconbot.models import ReconReport, ReconTarget
 from reconbot.prioritization import PrioritizedAsset
 from reconbot.screenshots import ScreenshotDiagnostic, ScreenshotStatus
 from reconbot.technology_categories import AssetCategory, Confidence
+from reconbot.url_intelligence import classify_historical_urls
 
 
 def test_build_json_export_includes_expected_structure() -> None:
@@ -94,6 +95,9 @@ def test_build_json_export_includes_expected_structure() -> None:
                 error="missing artifact",
             ),
         ],
+        historical_url_intelligence=classify_historical_urls(
+            {"gau": ["https://example.com/login"]}
+        ),
     )
 
     assert export["target"] == "example.com"
@@ -157,6 +161,20 @@ def test_build_json_export_includes_expected_structure() -> None:
             "result_count": 2,
             "return_code": 0,
             "error_summary": "",
+        }
+    ]
+    assert export["historical_url_intelligence"] == [
+        {
+            "observation_type": "Historical Lead",
+            "reachability": "unverified",
+            "url": "https://example.com/login",
+            "hostname": "example.com",
+            "path": "/login",
+            "query_keys": [],
+            "categories": ["Authentication"],
+            "sources": ["gau"],
+            "confidence": "medium",
+            "reasons": ["Authentication: keyword: login"],
         }
     ]
 

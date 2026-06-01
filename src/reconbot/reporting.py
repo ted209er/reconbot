@@ -15,6 +15,12 @@ from reconbot.technology_categories import (
     CATEGORY_ORDER,
     AssetCategory,
 )
+from reconbot.url_intelligence import (
+    HISTORICAL_OBSERVATION_TYPE,
+    HISTORICAL_REACHABILITY,
+    HistoricalUrlFinding,
+    top_historical_leads,
+)
 
 
 def write_markdown_report(
@@ -41,6 +47,8 @@ def write_markdown_report(
     run_status: RunCompleteness = RunCompleteness.COMPLETE,
     screenshots_enabled: bool = False,
     screenshot_diagnostics: list[ScreenshotDiagnostic] | None = None,
+    historical_url_intelligence: list[HistoricalUrlFinding] | None = None,
+    historical_url_summary: Mapping[str, int] | None = None,
 ) -> Path:
     """Write a plain markdown report to disk."""
     report_path.parent.mkdir(parents=True, exist_ok=True)
@@ -67,6 +75,8 @@ def write_markdown_report(
         run_status,
         screenshots_enabled,
         screenshot_diagnostics,
+        historical_url_intelligence,
+        historical_url_summary,
     )
     report_path.write_text(markdown, encoding="utf-8")
     return report_path
@@ -95,6 +105,8 @@ def build_markdown_report(
     run_status: RunCompleteness = RunCompleteness.COMPLETE,
     screenshots_enabled: bool = False,
     screenshot_diagnostics: list[ScreenshotDiagnostic] | None = None,
+    historical_url_intelligence: list[HistoricalUrlFinding] | None = None,
+    historical_url_summary: Mapping[str, int] | None = None,
 ) -> str:
     """Build a plain markdown report for a recon run."""
     lines = [
@@ -138,6 +150,13 @@ def build_markdown_report(
     if investigation_guidance is not None:
         lines.extend(
             _build_investigation_guidance_section(investigation_guidance, guidance_summary)
+        )
+    if historical_url_intelligence is not None:
+        lines.extend(
+            _build_historical_url_intelligence_section(
+                historical_url_intelligence,
+                historical_url_summary,
+            )
         )
     if subdomain_sources is not None or historical_url_sources is not None:
         lines.extend(_build_discovery_sources_section(subdomain_sources, historical_url_sources))
@@ -206,6 +225,11 @@ def _build_output_file_section(output_files: Mapping[str, Path]) -> list[str]:
         f"- Live hosts: `{output_files['live_hosts']}`",
         f"- Historical URLs: `{output_files['historical_urls']}`",
     ]
+    if "historical_url_intelligence" in output_files:
+        lines.append(
+            "- Classified historical URLs: "
+            f"`{output_files['historical_url_intelligence']}`"
+        )
     if "technologies" in output_files:
         lines.append(f"- Technologies: `{output_files['technologies']}`")
     if "screenshots" in output_files:
@@ -431,6 +455,46 @@ def _build_investigation_guidance_section(
                     "",
                 ]
             )
+    return lines
+
+
+def _build_historical_url_intelligence_section(
+    findings: list[HistoricalUrlFinding],
+    summary: Mapping[str, int] | None,
+) -> list[str]:
+    """Build a concise report view of passive historical URL intelligence."""
+    lines = [
+        "## Historical URL Intelligence",
+        "",
+        f"- Classification: {HISTORICAL_OBSERVATION_TYPE}",
+        f"- Reachability: {HISTORICAL_REACHABILITY}",
+        "- These URLs are passive historical leads, not current observations or evidence "
+        "that an archived URL remains reachable.",
+        "",
+        "Category Summary:",
+        "",
+    ]
+    if summary:
+        for category, count in summary.items():
+            lines.append(f"- {category}: {count}")
+    else:
+        lines.append("- None identified")
+    lines.extend(["", "Top Historical Leads:", ""])
+    leads = top_historical_leads(findings)
+    if not leads:
+        lines.extend(["- None identified", ""])
+        return lines
+    for index, finding in enumerate(leads, start=1):
+        lines.extend(
+            [
+                f"{index}. {finding.url}",
+                f"   - Categories: {', '.join(finding.categories)}",
+                f"   - Sources: {', '.join(finding.sources)}",
+                f"   - Confidence: {finding.confidence.value}",
+                f"   - Reason: {'; '.join(finding.reasons)}",
+                "",
+            ]
+        )
     return lines
 
 

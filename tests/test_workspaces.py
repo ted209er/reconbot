@@ -131,6 +131,9 @@ def test_run_workflow_writes_artifacts_to_workspace(
     assert (resolved_workspace / "data" / "processed" / "live_urls.txt").read_text(
         encoding="utf-8"
     ) == "https://app.example.com\n"
+    assert (
+        resolved_workspace / "data" / "processed" / "historical-urls-classified.tsv"
+    ).is_file()
     assert report_path.is_file()
     assert f"    {resolved_workspace}" in report_path.read_text(encoding="utf-8")
     assert screenshot_path.read_text(encoding="utf-8") == "screenshot"

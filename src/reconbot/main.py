@@ -36,6 +36,7 @@ from reconbot.history import (
     get_previous_technologies,
     initialize_database,
     record_collection_statuses,
+    record_historical_url_intelligence,
     record_live_urls,
     record_run,
     record_screenshot_diagnostics,
@@ -62,6 +63,11 @@ from reconbot.tools.gau import find_urls as find_historical_urls
 from reconbot.tools.httpx import find_live_urls
 from reconbot.tools.subfinder import find_subdomains
 from reconbot.tools.waybackurls import find_urls as find_wayback_urls
+from reconbot.url_intelligence import (
+    classify_historical_urls,
+    summarize_historical_urls,
+    write_historical_url_tsv,
+)
 from reconbot.utils.normalize import safe_filename
 from reconbot.workspaces import WorkspacePaths, ensure_workspace, resolve_workspace
 
@@ -255,6 +261,10 @@ def run_workflow(
     _record_result(report, "gau", historical_urls)
     historical_urls_path = processed_dir / "historical_urls.txt"
     _write_lines(historical_urls_path, historical_urls)
+    historical_url_intelligence = classify_historical_urls(historical_url_sources)
+    historical_url_summary = summarize_historical_urls(historical_url_intelligence)
+    historical_url_intelligence_path = processed_dir / "historical-urls-classified.tsv"
+    write_historical_url_tsv(historical_url_intelligence, historical_url_intelligence_path)
 
     logger.info(
         "Recon summary for %s: %s subdomains, %s live URLs, %s historical URLs",
@@ -355,10 +365,16 @@ def run_workflow(
         statuses=collection_statuses,
         database_path=database_path,
     )
+    record_historical_url_intelligence(
+        run_id=run_id,
+        findings=historical_url_intelligence,
+        database_path=database_path,
+    )
     output_files = {
         "subdomains": subdomains_path,
         "live_hosts": live_urls_path,
         "historical_urls": historical_urls_path,
+        "historical_url_intelligence": historical_url_intelligence_path,
         "technologies": technologies_path,
         "screenshots": screenshots_dir,
     }
@@ -387,6 +403,8 @@ def run_workflow(
         run_status,
         screenshot_settings.enabled,
         screenshot_diagnostics,
+        historical_url_intelligence,
+        historical_url_summary,
     )
     json_export_path = json_exports_dir / f"{safe_filename(target.domain)}.json"
     if write_json:
@@ -416,6 +434,7 @@ def run_workflow(
             collection_statuses=collection_statuses,
             run_status=run_status,
             screenshot_diagnostics=screenshot_diagnostics,
+            historical_url_intelligence=historical_url_intelligence,
         )
         write_json_export(json_export, json_export_path)
         logger.info("Wrote JSON export to %s", json_export_path)
@@ -429,6 +448,7 @@ def run_workflow(
             subdomains_path,
             live_urls_path,
             historical_urls_path,
+            historical_url_intelligence_path,
             technologies_path,
             screenshots_dir,
             json_export_path,

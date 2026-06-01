@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import sqlite3
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -9,6 +10,7 @@ from pathlib import Path
 
 from reconbot.collection_status import CollectionState, CollectionStatus, RunCompleteness
 from reconbot.screenshots import ScreenshotDiagnostic, ScreenshotStatus
+from reconbot.url_intelligence import HistoricalUrlConfidence, HistoricalUrlFinding
 
 DEFAULT_DATABASE_PATH = Path("data/reconbot.db")
 
@@ -129,6 +131,22 @@ def initialize_database(database_path: Path = DEFAULT_DATABASE_PATH) -> Path:
                 screenshot_path TEXT,
                 return_code INTEGER NOT NULL,
                 error TEXT NOT NULL DEFAULT '',
+                FOREIGN KEY (run_id) REFERENCES runs (id)
+            )
+            """
+        )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS historical_url_intelligence (
+                run_id INTEGER NOT NULL,
+                url TEXT NOT NULL,
+                hostname TEXT NOT NULL,
+                path TEXT NOT NULL,
+                query_keys TEXT NOT NULL,
+                categories TEXT NOT NULL,
+                sources TEXT NOT NULL,
+                confidence TEXT NOT NULL,
+                reasons TEXT NOT NULL,
                 FOREIGN KEY (run_id) REFERENCES runs (id)
             )
             """
@@ -505,6 +523,82 @@ def get_screenshot_diagnostics(
             screenshot_path=Path(str(row[2])) if row[2] is not None else None,
             return_code=int(row[3]),
             error=str(row[4]),
+        )
+        for row in rows
+    ]
+
+
+def record_historical_url_intelligence(
+    *,
+    run_id: int,
+    findings: list[HistoricalUrlFinding],
+    database_path: Path = DEFAULT_DATABASE_PATH,
+) -> None:
+    """Record structured historical URL intelligence for one run."""
+    initialize_database(database_path)
+    rows = [
+        (
+            run_id,
+            finding.url,
+            finding.hostname,
+            finding.path,
+            json.dumps(finding.query_keys),
+            json.dumps(finding.categories),
+            json.dumps(finding.sources),
+            finding.confidence.value,
+            json.dumps(finding.reasons),
+        )
+        for finding in sorted(findings, key=lambda item: item.url)
+    ]
+    if not rows:
+        return
+    with sqlite3.connect(database_path) as connection:
+        connection.executemany(
+            """
+            INSERT INTO historical_url_intelligence (
+                run_id,
+                url,
+                hostname,
+                path,
+                query_keys,
+                categories,
+                sources,
+                confidence,
+                reasons
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            rows,
+        )
+
+
+def get_historical_url_intelligence(
+    *,
+    run_id: int,
+    database_path: Path = DEFAULT_DATABASE_PATH,
+) -> list[HistoricalUrlFinding]:
+    """Return structured historical URL intelligence for one run."""
+    initialize_database(database_path)
+    with sqlite3.connect(database_path) as connection:
+        rows = connection.execute(
+            """
+            SELECT url, hostname, path, query_keys, categories, sources, confidence, reasons
+            FROM historical_url_intelligence
+            WHERE run_id = ?
+            ORDER BY url
+            """,
+            (run_id,),
+        ).fetchall()
+    return [
+        HistoricalUrlFinding(
+            url=str(row[0]),
+            hostname=str(row[1]),
+            path=str(row[2]),
+            query_keys=tuple(json.loads(str(row[3]))),
+            categories=tuple(json.loads(str(row[4]))),
+            sources=tuple(json.loads(str(row[5]))),
+            confidence=HistoricalUrlConfidence(str(row[6])),
+            reasons=tuple(json.loads(str(row[7]))),
         )
         for row in rows
     ]
