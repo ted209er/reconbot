@@ -37,6 +37,10 @@ Reconbot uses simple semantic versioning:
   failure reasons, collection-status integration, SQLite history, report
   warnings, JSON export fields, and local-only doctor checks for `gowitness` and
   screenshot browser availability.
+- Added deterministic historical URL intelligence with provenance, multiple
+  category assignments, confidence scoring, TSV output, SQLite storage, full
+  JSON exports, explicit unverified reachability labels, and a concise
+  top-leads markdown section.
 
 ## [0.1.0] - Initial MVP
 

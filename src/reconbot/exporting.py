@@ -13,6 +13,11 @@ from reconbot.models import ReconReport
 from reconbot.prioritization import PrioritizedAsset
 from reconbot.screenshots import ScreenshotDiagnostic
 from reconbot.technology_categories import CATEGORY_ORDER, AssetCategory
+from reconbot.url_intelligence import (
+    HISTORICAL_OBSERVATION_TYPE,
+    HISTORICAL_REACHABILITY,
+    HistoricalUrlFinding,
+)
 
 
 def build_json_export(
@@ -42,6 +47,7 @@ def build_json_export(
     collection_statuses: list[CollectionStatus] | None = None,
     run_status: RunCompleteness = RunCompleteness.COMPLETE,
     screenshot_diagnostics: list[ScreenshotDiagnostic] | None = None,
+    historical_url_intelligence: list[HistoricalUrlFinding] | None = None,
 ) -> dict[str, Any]:
     """Build a deterministic JSON-serializable export."""
     screenshot_paths = {url: str(path) for url, path in sorted(screenshots.items())}
@@ -66,6 +72,9 @@ def build_json_export(
         "subdomains": sorted(subdomains),
         "live_urls": sorted(live_urls),
         "historical_urls": sorted(historical_urls),
+        "historical_url_intelligence": _historical_url_intelligence(
+            historical_url_intelligence or []
+        ),
         "technology_summary": dict(sorted(technology_summary.items())),
         "technology_categories": _nested_mapping(technology_categories),
         "technology_category_summary": dict(technology_category_summary),
@@ -192,4 +201,25 @@ def _collection_statuses(statuses: list[CollectionStatus]) -> list[dict[str, obj
             statuses,
             key=lambda item: (item.source, item.target, item.status.value),
         )
+    ]
+
+
+def _historical_url_intelligence(
+    findings: list[HistoricalUrlFinding],
+) -> list[dict[str, object]]:
+    """Return full deterministic historical lead intelligence."""
+    return [
+        {
+            "observation_type": HISTORICAL_OBSERVATION_TYPE,
+            "reachability": HISTORICAL_REACHABILITY,
+            "url": finding.url,
+            "hostname": finding.hostname,
+            "path": finding.path,
+            "query_keys": list(finding.query_keys),
+            "categories": list(finding.categories),
+            "sources": list(finding.sources),
+            "confidence": finding.confidence.value,
+            "reasons": list(finding.reasons),
+        }
+        for finding in sorted(findings, key=lambda item: item.url)
     ]

@@ -29,6 +29,8 @@ Reconbot uses a small `src` layout so application code is importable as the
 - `src/reconbot/profiles.py` owns passive scan profile overlays for existing
   tool settings.
 - `src/reconbot/screenshots.py` owns passive screenshot capture.
+- `src/reconbot/url_intelligence.py` owns deterministic classification of
+  passively collected historical URLs.
 - `src/reconbot/history.py` owns the lightweight SQLite run history.
 - `src/reconbot/utils/` contains shared helpers that are not recon tools.
 - `src/reconbot/tools/` is reserved for future wrappers around external tools or
@@ -247,15 +249,35 @@ Workspace runs store the database at `<workspace>/data/reconbot.db`, which keeps
 engagement run history with the rest of the engagement artifacts.
 
 The history layer is intentionally small. It creates the `runs`, `subdomains`,
-`live_urls`, `technologies`, `screenshots`, `screenshot_diagnostics`, and
-`collection_statuses` tables when needed, records completed runs, stores
-selected results, and lists recent runs.
+`live_urls`, `technologies`, `screenshots`, `screenshot_diagnostics`,
+`collection_statuses`, and `historical_url_intelligence` tables when needed,
+records completed runs, stores selected results, and lists recent runs.
 
 The workflow compares current subdomains, live URLs, and technologies with the
 latest previous run for the same target before recording the current run.
 Reports show simple added and removed item counts plus the changed values. The
 project does not implement migrations, dashboards, analytics, notifications, or
 background jobs.
+
+## Historical URL Intelligence
+
+`src/reconbot/url_intelligence.py` transforms merged passive historical URLs
+from `gau` and `waybackurls` into typed, explainable findings. Each finding
+retains URL, hostname, path, query keys, multiple category assignments, source
+provenance, confidence, and deterministic reasons.
+
+The workflow preserves the existing flat `historical_urls.txt` export for
+backward compatibility. It also writes
+`data/processed/historical-urls-classified.tsv`, stores structured rows in
+SQLite, and exports the full `historical_url_intelligence` set to JSON.
+Markdown reports include category counts and at most 25 prioritized leads.
+
+Historical intelligence is explicitly labeled `Historical Lead`, not
+`Current Observation`, and reachability is marked `unverified`. Archived URL
+presence is not evidence that the same URL is currently reachable. The
+classifier uses only already-collected URLs, `urllib.parse`, suffix analysis,
+and readable keyword mappings. It does not crawl, fetch archived pages, probe
+targets, test vulnerabilities, or use AI-generated classifications.
 
 ## Collection Quality
 

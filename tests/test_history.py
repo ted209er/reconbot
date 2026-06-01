@@ -11,6 +11,7 @@ from reconbot.history import (
     calculate_removed_screenshots,
     calculate_removed_technologies,
     get_collection_statuses,
+    get_historical_url_intelligence,
     get_previous_live_urls,
     get_previous_screenshots,
     get_previous_subdomains,
@@ -19,6 +20,7 @@ from reconbot.history import (
     initialize_database,
     list_recent_runs,
     record_collection_statuses,
+    record_historical_url_intelligence,
     record_live_urls,
     record_run,
     record_screenshot_diagnostics,
@@ -27,6 +29,7 @@ from reconbot.history import (
     record_technologies,
 )
 from reconbot.screenshots import ScreenshotDiagnostic, ScreenshotStatus
+from reconbot.url_intelligence import classify_historical_urls
 
 
 def test_initialize_database_creates_schema(tmp_path: Path) -> None:
@@ -318,3 +321,31 @@ def test_records_and_reads_screenshot_diagnostics(tmp_path: Path) -> None:
     )
 
     assert get_screenshot_diagnostics(run_id=run_id, database_path=database_path) == diagnostics
+
+
+def test_records_and_reads_historical_url_intelligence(tmp_path: Path) -> None:
+    database_path = tmp_path / "reconbot.db"
+    started_at = datetime(2026, 5, 29, 12, 0, tzinfo=UTC)
+    run_id = record_run(
+        target="example.com",
+        started_at=started_at,
+        completed_at=started_at + timedelta(seconds=5),
+        subdomain_count=0,
+        live_url_count=0,
+        url_count=1,
+        database_path=database_path,
+    )
+    findings = classify_historical_urls(
+        {"gau": ["https://example.com/login"], "waybackurls": ["https://example.com/login"]}
+    )
+
+    record_historical_url_intelligence(
+        run_id=run_id,
+        findings=findings,
+        database_path=database_path,
+    )
+
+    assert get_historical_url_intelligence(
+        run_id=run_id,
+        database_path=database_path,
+    ) == findings

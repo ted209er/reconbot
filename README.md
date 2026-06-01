@@ -29,6 +29,8 @@ modules must preserve this boundary.
 - `src/reconbot/main.py` contains the placeholder orchestration flow.
 - `src/reconbot/profiles.py` applies lightweight passive scan profiles to
   existing tool settings.
+- `src/reconbot/url_intelligence.py` classifies passive historical URLs into
+  explainable investigation leads.
 - `src/reconbot/workspaces.py` resolves and creates optional engagement
   workspaces for generated recon data.
 - `src/reconbot/utils/subprocess_runner.py` wraps `subprocess.run` safely,
@@ -291,6 +293,17 @@ and `httpx`, `assetfinder`, `gau`, `waybackurls`, `curl` for crt.sh lookups, and
 Subdomain discovery merges passive results from `subfinder`, `assetfinder`, and
 crt.sh. Historical URL discovery merges passive results from `gau` and
 `waybackurls`. Reports and JSON exports include per-source discovery counts.
+
+Historical URL intelligence transforms the merged passive URL set into
+structured, explainable leads without crawling or fetching archived pages.
+Reconbot preserves the existing `data/processed/historical_urls.txt` flat
+export and also writes
+`data/processed/historical-urls-classified.tsv`. JSON exports contain the full
+`historical_url_intelligence` set with URL provenance, categories, confidence,
+and reasons. Markdown reports show category totals and the top 25 historical
+leads so large collections remain reviewable. Reports clearly label these URLs
+as `Historical Lead`, not `Current Observation`, and mark reachability as
+`unverified` so archived URLs are not presented as currently reachable assets.
 
 Technology fingerprinting reuses the configured `httpx` binary with passive
 technology detection options:

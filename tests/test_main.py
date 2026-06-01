@@ -209,6 +209,13 @@ def test_run_workflow_calls_wrappers_and_writes_outputs(
     assert (processed_dir / "historical_urls.txt").read_text(encoding="utf-8") == (
         "https://a.example.com/login\nhttps://b.example.com/archive\nhttps://c.example.com/old\n"
     )
+    classified_urls = (processed_dir / "historical-urls-classified.tsv").read_text(
+        encoding="utf-8"
+    )
+    assert (
+        "https://a.example.com/login\tHistorical Lead\tunverified\ta.example.com\t/login"
+        in classified_urls
+    )
     assert (processed_dir / "technologies.txt").read_text(encoding="utf-8") == (
         "http://b.example.com\tWordPress\nhttps://a.example.com\tNginx\n"
     )
@@ -229,6 +236,8 @@ def test_run_workflow_calls_wrappers_and_writes_outputs(
     assert "CMS:" in report_text
     assert "- WordPress (1)" in report_text
     assert "## High Interest Assets" in report_text
+    assert "## Historical URL Intelligence" in report_text
+    assert "- Classification: Historical Lead" in report_text
     assert "1. https://a.example.com" in report_text
     assert "   - New live URL" in report_text
     history = list_recent_runs(database_path=main.HISTORY_DATABASE_PATH)
@@ -275,6 +284,9 @@ def test_run_workflow_calls_wrappers_and_writes_outputs(
     assert json_export["screenshot_changes"]["added_screenshots"] == ["https://a.example.com"]
     assert json_export["prioritized_assets"][0]["url"] == "https://a.example.com"
     assert json_export["prioritized_assets"][0]["score"] == 15
+    assert json_export["historical_url_intelligence"][0]["observation_type"] == (
+        "Historical Lead"
+    )
 
 
 def test_run_workflow_prints_startup_progress_and_summary(

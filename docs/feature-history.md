@@ -302,3 +302,59 @@ capture passive and local environment checks target-free.
 
 - `make validate`
 - `git diff --check`
+
+## Historical URL Intelligence
+
+### Purpose
+
+Transform large passive historical URL collections into structured,
+explainable leads for authorized manual investigation.
+
+### Files Added
+
+- `src/reconbot/url_intelligence.py`
+- `tests/test_url_intelligence.py`
+
+### Files Modified
+
+- `src/reconbot/main.py`
+- `src/reconbot/history.py`
+- `src/reconbot/reporting.py`
+- `src/reconbot/exporting.py`
+- `tests/test_main.py`
+- `tests/test_history.py`
+- `tests/test_exporting.py`
+- `tests/test_workspaces.py`
+- `README.md`
+- `docs/architecture.md`
+- `CHANGELOG.md`
+- `docs/feature-history.md`
+
+### New Commands
+
+- None.
+
+### Design Decisions
+
+- Preserve the existing flat `historical_urls.txt` export for backward
+  compatibility.
+- Classify only URLs already collected by passive sources. Do not crawl, fetch
+  archived pages, probe targets, or test vulnerabilities.
+- Use `urllib.parse`, suffix analysis, and explicit keyword mappings for
+  deterministic, explainable multi-category assignments.
+- Preserve `gau` and `waybackurls` provenance for each merged URL.
+- Export the full structured set to TSV, JSON, and SQLite while limiting
+  markdown output to the top 25 historical leads.
+- Clearly label historical URLs as `Historical Lead`, not
+  `Current Observation`, and mark reachability as `unverified`.
+
+### Follow-Up Opportunities
+
+- Add configuration overrides for keyword mappings if engagement-specific
+  terminology becomes common.
+- Add historical URL category filtering to future offline review tools.
+
+### Verification Results
+
+- `make validate`
+- `git diff --check`
