@@ -323,6 +323,21 @@ Run completeness is deterministic:
 Collection quality reporting does not add active testing, target interaction
 beyond existing passive collectors, or new external tools.
 
+## Root Domain Seeds
+
+Before live-host detection, orchestration adds the authorized root domain and
+`www.<domain>` as deterministic seed candidates. These values are normalized,
+deduplicated with passive subdomain discoveries, and passed to the existing
+`httpx` wrapper. This preserves passive subdomain collection behavior while
+ensuring the common root and `www` assets are considered even when discovery
+returns zero subdomains.
+
+The same seed host set is merged with observed live hosts before passive
+historical URL collection. Reports list included seeds, JSON exports include
+`live_host_candidate_seeds`, and collection quality records `seed-hosts`
+evidence. This does not add wordlists, DNS enumeration, brute forcing, port
+scanning, or new external tools.
+
 ## Subprocess Runner
 
 `src/reconbot/utils/subprocess_runner.py` is the foundation helper for local

@@ -99,6 +99,7 @@ def test_build_json_export_includes_expected_structure() -> None:
             {"gau": ["https://example.com/login"]}
         ),
         asset_diff={"added_live_urls": ["https://a.example.com"]},
+        seed_hosts=["www.example.com", "example.com"],
     )
 
     assert export["target"] == "example.com"
@@ -179,6 +180,7 @@ def test_build_json_export_includes_expected_structure() -> None:
         }
     ]
     assert export["asset_changes"] == {"added_live_urls": ["https://a.example.com"]}
+    assert export["live_host_candidate_seeds"] == ["example.com", "www.example.com"]
 
 
 def test_build_json_export_sorts_change_lists() -> None:

@@ -49,6 +49,7 @@ def build_json_export(
     screenshot_diagnostics: list[ScreenshotDiagnostic] | None = None,
     historical_url_intelligence: list[HistoricalUrlFinding] | None = None,
     asset_diff: Mapping[str, list[str]] | None = None,
+    seed_hosts: list[str] | None = None,
 ) -> dict[str, Any]:
     """Build a deterministic JSON-serializable export."""
     screenshot_paths = {url: str(path) for url, path in sorted(screenshots.items())}
@@ -73,6 +74,7 @@ def build_json_export(
         "subdomains": sorted(subdomains),
         "live_urls": sorted(live_urls),
         "historical_urls": sorted(historical_urls),
+        "live_host_candidate_seeds": sorted(seed_hosts or []),
         "historical_url_intelligence": _historical_url_intelligence(
             historical_url_intelligence or []
         ),
