@@ -5,6 +5,7 @@ from reconbot.guidance import AssetGuidance, SuggestedCheck
 from reconbot.models import ReconReport, ReconTarget, ToolResult
 from reconbot.prioritization import PrioritizedAsset
 from reconbot.reporting import build_markdown_report, write_markdown_report
+from reconbot.screenshots import ScreenshotDiagnostic, ScreenshotStatus
 from reconbot.technology_categories import AssetCategory, Confidence
 
 
@@ -199,11 +200,30 @@ def test_build_markdown_report_includes_screenshot_summary() -> None:
             "added_screenshots": ["https://admin.example.com"],
             "removed_screenshots": ["https://old.example.com"],
         },
+        screenshots_enabled=True,
+        screenshot_diagnostics=[
+            ScreenshotDiagnostic(
+                url="https://admin.example.com",
+                status=ScreenshotStatus.SUCCESS,
+                screenshot_path=Path("reports/screenshots/example-com/admin.png"),
+                return_code=0,
+            ),
+            ScreenshotDiagnostic(
+                url="https://failed.example.com",
+                status=ScreenshotStatus.FAILED,
+                screenshot_path=None,
+                return_code=1,
+                error="browser missing",
+            ),
+        ],
     )
 
     assert "## Screenshots" in markdown
     assert "Screenshot Summary:" in markdown
     assert "- Screenshots captured: 2" in markdown
+    assert "- Screenshot collection enabled: yes" in markdown
+    assert "- Screenshot failures: 1/2 assets failed" in markdown
+    assert "- https://failed.example.com: FAILED - browser missing" in markdown
     assert "- New screenshot targets: 1" in markdown
     assert "- Removed screenshot targets: 1" in markdown
     assert "- reports/screenshots/example-com/admin.png" in markdown

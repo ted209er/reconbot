@@ -32,3 +32,16 @@ def run_screenshot_capture(
         ],
         timeout=timeout,
     )
+
+
+def run_basic_check(
+    *,
+    binary: str = DEFAULT_BINARY,
+    timeout: float = 10.0,
+) -> ToolResult:
+    """Run a local-only gowitness version check."""
+    return run_command(
+        "gowitness",
+        [binary, "version"],
+        timeout=timeout,
+    )

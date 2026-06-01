@@ -96,8 +96,9 @@ the previous override behavior.
 
 `src/reconbot/doctor.py` implements `reconbot doctor` as a local-only health
 check. It verifies Python version support, packaged default config loading,
-SQLite availability, optional workspace structure, and supported external tool
-visibility through `shutil.which()`.
+SQLite availability, optional workspace structure, supported external tool
+visibility through `shutil.which()`, local `gowitness version` execution, and
+Chrome or Chromium availability for screenshot capture.
 
 Doctor output is human-readable and ends with `HEALTHY`, `WARNINGS`, or
 `ERROR`. Missing recon tools are warnings because users may intentionally run
@@ -224,11 +225,18 @@ Screenshot paths are deterministic and stored under
 `reports/screenshots/<safe-target-name>/`, or under
 `<workspace>/screenshots/<safe-target-name>/` when a workspace is configured.
 The layer records screenshot metadata in SQLite, including URL, path, and
-capture timestamp. Reports compare the current screenshot URL set with the
-latest previous run for the same target. This is target-level history only:
-Reconbot does not compare pixels, hash image contents, run OCR, add visual
-regression testing, or add Playwright, Selenium, browser automation frameworks,
-notifications, or dashboards.
+capture timestamp. It also records a typed per-URL diagnostic with `SUCCESS`,
+`FAILED`, `TIMED_OUT`, or `NO_ARTIFACT`, the return code, and a concise error.
+A successful command must produce an existing, non-empty screenshot artifact.
+Screenshot diagnostics map into shared collection-quality evidence, are stored
+in SQLite, appear as markdown warnings, and are exported through
+`screenshot_status` and `screenshot_error`.
+
+Reports compare the current screenshot URL set with the latest previous run for
+the same target. This is target-level history only: Reconbot does not compare
+pixels, hash image contents, run OCR, add visual regression testing, or add
+Playwright, Selenium, browser automation frameworks, notifications, or
+dashboards.
 
 ## History Layer
 
@@ -239,9 +247,9 @@ Workspace runs store the database at `<workspace>/data/reconbot.db`, which keeps
 engagement run history with the rest of the engagement artifacts.
 
 The history layer is intentionally small. It creates the `runs`, `subdomains`,
-`live_urls`, `technologies`, `screenshots`, and `collection_statuses` tables
-when needed, records completed runs, stores selected results, and lists recent
-runs.
+`live_urls`, `technologies`, `screenshots`, `screenshot_diagnostics`, and
+`collection_statuses` tables when needed, records completed runs, stores
+selected results, and lists recent runs.
 
 The workflow compares current subdomains, live URLs, and technologies with the
 latest previous run for the same target before recording the current run.

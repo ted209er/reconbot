@@ -6,6 +6,7 @@ from reconbot.exporting import build_json_export, write_json_export
 from reconbot.guidance import AssetGuidance, SuggestedCheck
 from reconbot.models import ReconReport, ReconTarget
 from reconbot.prioritization import PrioritizedAsset
+from reconbot.screenshots import ScreenshotDiagnostic, ScreenshotStatus
 from reconbot.technology_categories import AssetCategory, Confidence
 
 
@@ -78,6 +79,21 @@ def test_build_json_export_includes_expected_structure() -> None:
             CollectionStatus("subfinder", "example.com", CollectionState.SUCCESS, 2, 0),
         ],
         run_status=RunCompleteness.COMPLETE,
+        screenshot_diagnostics=[
+            ScreenshotDiagnostic(
+                url="https://a.example.com",
+                status=ScreenshotStatus.SUCCESS,
+                screenshot_path=Path("reports/screenshots/example-com/a.png"),
+                return_code=0,
+            ),
+            ScreenshotDiagnostic(
+                url="https://failed.example.com",
+                status=ScreenshotStatus.NO_ARTIFACT,
+                screenshot_path=None,
+                return_code=0,
+                error="missing artifact",
+            ),
+        ],
     )
 
     assert export["target"] == "example.com"
@@ -117,6 +133,11 @@ def test_build_json_export_includes_expected_structure() -> None:
         "https://a.example.com": "reports/screenshots/example-com/a.png",
         "https://b.example.com": "reports/screenshots/example-com/b.png",
     }
+    assert export["screenshot_status"] == {
+        "https://a.example.com": "SUCCESS",
+        "https://failed.example.com": "NO_ARTIFACT",
+    }
+    assert export["screenshot_error"] == {"https://failed.example.com": "missing artifact"}
     assert export["prioritized_assets"] == [
         {
             "url": "https://a.example.com",

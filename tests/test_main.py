@@ -78,6 +78,7 @@ def test_run_workflow_calls_wrappers_and_writes_outputs(
         binary: str,
         timeout: float,
         collection_statuses: object = None,
+        diagnostics: object = None,
     ) -> list[str]:
         calls.append(("subfinder", domain, binary, timeout))
         return ["a.example.com", "b.example.com"]
@@ -149,6 +150,7 @@ def test_run_workflow_calls_wrappers_and_writes_outputs(
         binary: str,
         timeout: float,
         collection_statuses: object = None,
+        diagnostics: object = None,
     ) -> dict[str, Path]:
         calls.append(("screenshots", urls, binary, timeout))
         return {"https://a.example.com": output_dir / "https-a-example-com.png"}

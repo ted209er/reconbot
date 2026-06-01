@@ -4,6 +4,7 @@ import pytest
 from pytest import MonkeyPatch
 
 from reconbot import doctor, main
+from reconbot.models import ToolResult
 from reconbot.workspaces import ensure_workspace
 
 
@@ -73,6 +74,74 @@ def test_check_tools_is_healthy_when_all_tools_are_found(monkeypatch: MonkeyPatc
     result = doctor.check_tools(["subfinder", "gau"])
 
     assert result.status == doctor.HealthStatus.HEALTHY
+
+
+def test_check_gowitness_warns_when_missing(monkeypatch: MonkeyPatch) -> None:
+    monkeypatch.setattr(doctor, "which", lambda tool_name: None)
+
+    result = doctor.check_gowitness()
+
+    assert result.status == doctor.HealthStatus.WARNINGS
+    assert "missing from PATH" in result.message
+
+
+def test_check_gowitness_runs_local_version_check(monkeypatch: MonkeyPatch) -> None:
+    calls: list[str] = []
+    monkeypatch.setattr(doctor, "which", lambda tool_name: "/usr/bin/gowitness")
+
+    def fake_run_basic_check(*, binary: str) -> ToolResult:
+        calls.append(binary)
+        return ToolResult(name="gowitness", success=True)
+
+    monkeypatch.setattr(doctor, "run_basic_check", fake_run_basic_check)
+
+    result = doctor.check_gowitness()
+
+    assert result.status == doctor.HealthStatus.HEALTHY
+    assert calls == ["/usr/bin/gowitness"]
+
+
+def test_check_gowitness_warns_when_local_version_check_fails(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(doctor, "which", lambda tool_name: "/usr/bin/gowitness")
+    monkeypatch.setattr(
+        doctor,
+        "run_basic_check",
+        lambda *, binary: ToolResult(
+            name="gowitness",
+            success=False,
+            error="browser setup failed",
+            return_code=1,
+        ),
+    )
+
+    result = doctor.check_gowitness()
+
+    assert result.status == doctor.HealthStatus.WARNINGS
+    assert "browser setup failed" in result.message
+
+
+def test_check_browser_warns_when_missing(monkeypatch: MonkeyPatch) -> None:
+    monkeypatch.setattr(doctor, "which", lambda tool_name: None)
+
+    result = doctor.check_browser()
+
+    assert result.status == doctor.HealthStatus.WARNINGS
+    assert "Chrome or Chromium" in result.message
+
+
+def test_check_browser_finds_chromium(monkeypatch: MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        doctor,
+        "which",
+        lambda tool_name: "/usr/bin/chromium" if tool_name == "chromium" else None,
+    )
+
+    result = doctor.check_browser()
+
+    assert result.status == doctor.HealthStatus.HEALTHY
+    assert "/usr/bin/chromium" in result.message
 
 
 def test_format_doctor_output_includes_overall_status() -> None:

@@ -11,6 +11,7 @@ from reconbot.collection_status import CollectionStatus, RunCompleteness
 from reconbot.guidance import AssetGuidance
 from reconbot.models import ReconReport
 from reconbot.prioritization import PrioritizedAsset
+from reconbot.screenshots import ScreenshotDiagnostic
 from reconbot.technology_categories import CATEGORY_ORDER, AssetCategory
 
 
@@ -40,9 +41,11 @@ def build_json_export(
     guidance_summary: Mapping[str, int] | None = None,
     collection_statuses: list[CollectionStatus] | None = None,
     run_status: RunCompleteness = RunCompleteness.COMPLETE,
+    screenshot_diagnostics: list[ScreenshotDiagnostic] | None = None,
 ) -> dict[str, Any]:
     """Build a deterministic JSON-serializable export."""
     screenshot_paths = {url: str(path) for url, path in sorted(screenshots.items())}
+    diagnostic_items = screenshot_diagnostics or []
     return {
         "target": report.target.domain,
         "run_name": run_name,
@@ -73,6 +76,15 @@ def build_json_export(
         "collection_status": _collection_statuses(collection_statuses or []),
         "technology_changes": _sorted_change_lists(technology_diff),
         "screenshot_paths": screenshot_paths,
+        "screenshot_status": {
+            diagnostic.url: diagnostic.status.value
+            for diagnostic in sorted(diagnostic_items, key=lambda item: item.url)
+        },
+        "screenshot_error": {
+            diagnostic.url: diagnostic.error
+            for diagnostic in sorted(diagnostic_items, key=lambda item: item.url)
+            if diagnostic.error
+        },
         "screenshot_changes": _sorted_change_lists(screenshot_diff),
         "prioritized_assets": _prioritized_assets(prioritized_assets),
         "discovery_sources": {

@@ -237,3 +237,68 @@ distinguish complete runs from partial or failed runs without reading log files.
 
 - `make validate`
 - `git diff --check`
+
+## Screenshot Diagnostics
+
+### Purpose
+
+Make screenshot failures visible, actionable, and auditable while keeping
+capture passive and local environment checks target-free.
+
+### Files Added
+
+- None.
+
+### Files Modified
+
+- `src/reconbot/tools/gowitness.py`
+- `src/reconbot/screenshots.py`
+- `src/reconbot/doctor.py`
+- `src/reconbot/main.py`
+- `src/reconbot/history.py`
+- `src/reconbot/reporting.py`
+- `src/reconbot/exporting.py`
+- `tests/test_gowitness.py`
+- `tests/test_screenshots.py`
+- `tests/test_doctor.py`
+- `tests/test_history.py`
+- `tests/test_reporting.py`
+- `tests/test_exporting.py`
+- `tests/test_main.py`
+- `tests/test_workspaces.py`
+- `README.md`
+- `docs/tool-installation.md`
+- `docs/architecture.md`
+- `CHANGELOG.md`
+- `docs/feature-history.md`
+
+### New Commands
+
+- None.
+
+### Design Decisions
+
+- Record typed per-URL `SUCCESS`, `FAILED`, `TIMED_OUT`, and `NO_ARTIFACT`
+  screenshot diagnostics with return code and concise error.
+- Accept screenshot success only when the expected artifact exists and has a
+  size greater than zero.
+- Map screenshot diagnostics into the shared collection-status model so
+  failures affect deterministic run completeness.
+- Persist diagnostics in SQLite and expose `screenshot_status` and
+  `screenshot_error` JSON fields plus markdown warnings.
+- Keep doctor extensions local-only: executable visibility, `gowitness version`
+  execution, and Chrome or Chromium availability.
+- Keep all external process construction and execution in
+  `src/reconbot/tools/gowitness.py`.
+
+### Follow-Up Opportunities
+
+- Support configurable browser paths when browser installations are not
+  visible on `PATH`.
+- Confirm artifact naming across supported `gowitness` versions and add a
+  compatibility adapter if needed.
+
+### Verification Results
+
+- `make validate`
+- `git diff --check`

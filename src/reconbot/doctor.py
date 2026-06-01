@@ -11,6 +11,7 @@ from pathlib import Path
 from shutil import which
 
 from reconbot.config_loader import get_default_config_path, load_default_config
+from reconbot.tools.gowitness import run_basic_check
 from reconbot.workspaces import workspace_paths
 
 REQUIRED_TOOL_BINARIES = (
@@ -20,6 +21,13 @@ REQUIRED_TOOL_BINARIES = (
     "gau",
     "waybackurls",
     "gowitness",
+)
+BROWSER_BINARIES = (
+    "chromium",
+    "chromium-browser",
+    "google-chrome",
+    "google-chrome-stable",
+    "chrome",
 )
 
 
@@ -136,6 +144,38 @@ def check_sqlite() -> CheckResult:
     return CheckResult("SQLite", HealthStatus.HEALTHY, f"SQLite {sqlite3.sqlite_version}")
 
 
+def check_gowitness() -> CheckResult:
+    """Check local gowitness executable visibility and basic command execution."""
+    executable = which("gowitness")
+    if executable is None:
+        return CheckResult(
+            "gowitness",
+            HealthStatus.WARNINGS,
+            "gowitness executable is missing from PATH",
+        )
+    result = run_basic_check(binary=executable)
+    if not result.success:
+        error = " ".join(result.error.split()) or f"return code {result.return_code}"
+        return CheckResult(
+            "gowitness",
+            HealthStatus.WARNINGS,
+            f"gowitness version check failed: {error}",
+        )
+    return CheckResult("gowitness", HealthStatus.HEALTHY, f"gowitness executable: {executable}")
+
+
+def check_browser() -> CheckResult:
+    """Check local browser availability for gowitness screenshots."""
+    for browser in BROWSER_BINARIES:
+        if executable := which(browser):
+            return CheckResult("Browser", HealthStatus.HEALTHY, f"Screenshot browser: {executable}")
+    return CheckResult(
+        "Browser",
+        HealthStatus.WARNINGS,
+        "Screenshot browser not found on PATH; install Chrome or Chromium",
+    )
+
+
 def run_doctor(workspace_path: Path | None = None) -> list[CheckResult]:
     """Run all environment checks."""
     return [
@@ -144,6 +184,8 @@ def run_doctor(workspace_path: Path | None = None) -> list[CheckResult]:
         check_sqlite(),
         check_workspace(workspace_path),
         check_tools(),
+        check_gowitness(),
+        check_browser(),
     ]
 
 

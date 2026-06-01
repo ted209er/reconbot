@@ -146,9 +146,10 @@ reconbot doctor --workspace ~/Recon/hackerone/example
 ```
 
 The doctor command checks Python 3.11+, packaged default config loading, SQLite,
-optional workspace structure, and external tool availability. It does not
-contact targets and does not run recon. Results end with `HEALTHY`, `WARNINGS`,
-or `ERROR`.
+optional workspace structure, external tool availability, local `gowitness`
+command execution, and Chrome or Chromium availability for screenshots. It
+does not contact targets and does not run recon. Results end with `HEALTHY`,
+`WARNINGS`, or `ERROR`.
 
 ## Running From A Workspace
 
@@ -257,6 +258,11 @@ from markdown reports.
 Reconbot records screenshot metadata in SQLite and reports new or removed
 screenshot targets by URL. It does not compare pixels, hash image contents, run
 OCR, or perform visual regression testing.
+Screenshot collection also records a per-URL diagnostic: `SUCCESS`, `FAILED`,
+`TIMED_OUT`, or `NO_ARTIFACT`. A successful `gowitness` command is accepted
+only when the expected screenshot file exists and is non-empty. Reports show
+collection warnings, JSON exports include `screenshot_status` and
+`screenshot_error`, and SQLite history retains the diagnostic audit trail.
 Structured JSON exports are written to `reports/json/<safe-target-name>.json`,
 or `<workspace>/reports/json/<safe-target-name>.json` for workspace runs, for
 automation, scripting, and future integrations.

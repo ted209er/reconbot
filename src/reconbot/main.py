@@ -38,6 +38,7 @@ from reconbot.history import (
     record_collection_statuses,
     record_live_urls,
     record_run,
+    record_screenshot_diagnostics,
     record_screenshots,
     record_subdomains,
     record_technologies,
@@ -47,7 +48,7 @@ from reconbot.models import ReconReport, ReconTarget, ToolResult
 from reconbot.prioritization import prioritize_assets
 from reconbot.profiles import ProfileToolSettings, ScanProfile, apply_profile
 from reconbot.reporting import write_markdown_report
-from reconbot.screenshots import capture_screenshots
+from reconbot.screenshots import ScreenshotDiagnostic, capture_screenshots
 from reconbot.technology_categories import (
     categorize_assets,
     categorize_technologies,
@@ -123,6 +124,7 @@ def run_workflow(
     target = ReconTarget(domain=domain, config_path=effective_config_path)
     report = ReconReport(target=target)
     collection_statuses: list[CollectionStatus] = []
+    screenshot_diagnostics: list[ScreenshotDiagnostic] = []
 
     _print_startup_banner(
         target.domain,
@@ -225,6 +227,7 @@ def run_workflow(
             binary=screenshot_settings.binary,
             timeout=screenshot_settings.timeout,
             collection_statuses=collection_statuses,
+            diagnostics=screenshot_diagnostics,
         )
         if not live_urls:
             collection_statuses.append(
@@ -342,6 +345,11 @@ def run_workflow(
         captured_at=report.finished_at,
         database_path=database_path,
     )
+    record_screenshot_diagnostics(
+        run_id=run_id,
+        diagnostics=screenshot_diagnostics,
+        database_path=database_path,
+    )
     record_collection_statuses(
         run_id=run_id,
         statuses=collection_statuses,
@@ -377,6 +385,8 @@ def run_workflow(
         guidance_summary,
         collection_statuses,
         run_status,
+        screenshot_settings.enabled,
+        screenshot_diagnostics,
     )
     json_export_path = json_exports_dir / f"{safe_filename(target.domain)}.json"
     if write_json:
@@ -405,6 +415,7 @@ def run_workflow(
             guidance_summary=guidance_summary,
             collection_statuses=collection_statuses,
             run_status=run_status,
+            screenshot_diagnostics=screenshot_diagnostics,
         )
         write_json_export(json_export, json_export_path)
         logger.info("Wrote JSON export to %s", json_export_path)
