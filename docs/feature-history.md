@@ -415,3 +415,55 @@ reconbot plan --workspace PATH
 
 - `make validate`
 - `git diff --check`
+
+## Root Domain Seeds
+
+### Purpose
+
+Ensure root domains and `www.<domain>` remain live-host candidates even when
+passive subdomain discovery returns zero results.
+
+### Files Added
+
+- None.
+
+### Files Modified
+
+- `src/reconbot/utils/normalize.py`
+- `src/reconbot/main.py`
+- `src/reconbot/reporting.py`
+- `src/reconbot/exporting.py`
+- `tests/test_main.py`
+- `tests/test_reporting.py`
+- `tests/test_exporting.py`
+- `README.md`
+- `docs/architecture.md`
+- `CHANGELOG.md`
+- `docs/feature-history.md`
+
+### New Commands
+
+- None.
+
+### Design Decisions
+
+- Add the normalized authorized root domain and `www.<domain>` as deterministic
+  live-host seed candidates.
+- Deduplicate seeds with passive subdomain discoveries before invoking the
+  existing `httpx` wrapper.
+- Record `seed-hosts` collection-quality evidence and list seeds in markdown
+  reports and JSON exports.
+- Include the same seed set consistently in passive historical URL source
+  inputs.
+- Do not add wordlists, DNS enumeration, brute forcing, port scanning, or new
+  external tools.
+
+### Follow-Up Opportunities
+
+- Consider optional user-configured seed hosts if authorized engagement scope
+  commonly includes additional known entry points.
+
+### Verification Results
+
+- `make validate`
+- `git diff --check`

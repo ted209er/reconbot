@@ -291,6 +291,26 @@ def test_build_markdown_report_includes_discovery_sources_summary() -> None:
     assert "- waybackurls: 312" in markdown
 
 
+def test_build_markdown_report_includes_live_host_candidate_seeds() -> None:
+    report = ReconReport(
+        target=ReconTarget(domain="example.com", config_path=Path("config.yaml"))
+    )
+
+    markdown = build_markdown_report(
+        report,
+        {
+            "subdomains": Path("subdomains.txt"),
+            "live_hosts": Path("live_urls.txt"),
+            "historical_urls": Path("historical_urls.txt"),
+        },
+        seed_hosts=["www.example.com", "example.com"],
+    )
+
+    assert "## Live Host Candidate Seeds" in markdown
+    assert "- example.com" in markdown
+    assert "- www.example.com" in markdown
+
+
 def test_build_markdown_report_sorts_assets_by_category() -> None:
     report = ReconReport(
         target=ReconTarget(domain="example.com", config_path=Path("config.yaml"))

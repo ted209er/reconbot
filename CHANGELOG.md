@@ -44,6 +44,9 @@ Reconbot uses simple semantic versioning:
 - Added `reconbot plan --workspace PATH` for local-only investigation dossiers
   that combine existing workspace evidence into prioritized markdown and JSON
   manual review plans.
+- Added normalized root-domain and `www.<domain>` live-host seed candidates,
+  with deduplication, collection-quality evidence, report visibility, JSON
+  export metadata, and consistent passive historical URL source inputs.
 
 ## [0.1.0] - Initial MVP
 

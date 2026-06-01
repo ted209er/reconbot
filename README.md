@@ -322,6 +322,14 @@ Subdomain discovery merges passive results from `subfinder`, `assetfinder`, and
 crt.sh. Historical URL discovery merges passive results from `gau` and
 `waybackurls`. Reports and JSON exports include per-source discovery counts.
 
+Live-host detection always includes the authorized root domain and
+`www.<domain>` as deterministic seed candidates in addition to passively
+discovered subdomains. Seed hosts are normalized and deduplicated before
+`httpx` runs, recorded as `seed-hosts` collection evidence, listed in markdown
+reports, and exported as `live_host_candidate_seeds`. The same seed host set is
+included consistently when querying passive historical URL sources. This does
+not add DNS enumeration, wordlists, brute forcing, or port scanning.
+
 Historical URL intelligence transforms the merged passive URL set into
 structured, explainable leads without crawling or fetching archived pages.
 Reconbot preserves the existing `data/processed/historical_urls.txt` flat

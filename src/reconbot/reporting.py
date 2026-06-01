@@ -49,6 +49,7 @@ def write_markdown_report(
     screenshot_diagnostics: list[ScreenshotDiagnostic] | None = None,
     historical_url_intelligence: list[HistoricalUrlFinding] | None = None,
     historical_url_summary: Mapping[str, int] | None = None,
+    seed_hosts: list[str] | None = None,
 ) -> Path:
     """Write a plain markdown report to disk."""
     report_path.parent.mkdir(parents=True, exist_ok=True)
@@ -77,6 +78,7 @@ def write_markdown_report(
         screenshot_diagnostics,
         historical_url_intelligence,
         historical_url_summary,
+        seed_hosts,
     )
     report_path.write_text(markdown, encoding="utf-8")
     return report_path
@@ -107,6 +109,7 @@ def build_markdown_report(
     screenshot_diagnostics: list[ScreenshotDiagnostic] | None = None,
     historical_url_intelligence: list[HistoricalUrlFinding] | None = None,
     historical_url_summary: Mapping[str, int] | None = None,
+    seed_hosts: list[str] | None = None,
 ) -> str:
     """Build a plain markdown report for a recon run."""
     lines = [
@@ -160,6 +163,8 @@ def build_markdown_report(
         )
     if subdomain_sources is not None or historical_url_sources is not None:
         lines.extend(_build_discovery_sources_section(subdomain_sources, historical_url_sources))
+    if seed_hosts is not None:
+        lines.extend(_build_seed_host_section(seed_hosts))
     lines.extend(_build_output_file_section(output_files))
     return "\n".join(lines)
 
@@ -419,6 +424,17 @@ def _build_discovery_sources_section(
         for source, count in sorted(historical_url_sources.items()):
             lines.append(f"- {source}: {count}")
         lines.append("")
+    return lines
+
+
+def _build_seed_host_section(seed_hosts: list[str]) -> list[str]:
+    """Build deterministic live-host seed evidence."""
+    lines = ["## Live Host Candidate Seeds", ""]
+    if not seed_hosts:
+        lines.extend(["- None included", ""])
+        return lines
+    lines.extend(f"- {host}" for host in sorted(seed_hosts))
+    lines.append("")
     return lines
 
 

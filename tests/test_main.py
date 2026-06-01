@@ -173,7 +173,14 @@ def test_run_workflow_calls_wrappers_and_writes_outputs(
         ("crtsh", "example.com", "custom-curl", 12.0),
         (
             "httpx",
-            ["a.example.com", "b.example.com", "c.example.com", "d.example.com"],
+            [
+                "a.example.com",
+                "b.example.com",
+                "c.example.com",
+                "d.example.com",
+                "example.com",
+                "www.example.com",
+            ],
             "custom-httpx",
             20.0,
         ),
@@ -184,8 +191,18 @@ def test_run_workflow_calls_wrappers_and_writes_outputs(
             "custom-gowitness",
             40.0,
         ),
-        ("gau", ["a.example.com", "b.example.com"], "custom-gau", 30.0),
-        ("waybackurls", ["a.example.com", "b.example.com"], "custom-waybackurls", 31.0),
+        (
+            "gau",
+            ["a.example.com", "b.example.com", "example.com", "www.example.com"],
+            "custom-gau",
+            30.0,
+        ),
+        (
+            "waybackurls",
+            ["a.example.com", "b.example.com", "example.com", "www.example.com"],
+            "custom-waybackurls",
+            31.0,
+        ),
     ]
     assert validation_calls == [
         [
@@ -226,6 +243,9 @@ def test_run_workflow_calls_wrappers_and_writes_outputs(
     assert "- crtsh: 2" in report_text
     assert "- subfinder: 2" in report_text
     assert "- waybackurls: 1" in report_text
+    assert "## Live Host Candidate Seeds" in report_text
+    assert "- example.com" in report_text
+    assert "- www.example.com" in report_text
     assert "- Live host count: 2" in report_text
     assert "- URL count: 3" in report_text
     assert "- Screenshots captured: 1" in report_text
@@ -281,6 +301,15 @@ def test_run_workflow_calls_wrappers_and_writes_outputs(
         "d.example.com",
     ]
     assert json_export["discovery_sources"]["subdomains"]["crtsh"] == 2
+    assert json_export["live_host_candidate_seeds"] == ["example.com", "www.example.com"]
+    assert {
+        "source": "seed-hosts",
+        "target": "example.com",
+        "status": "SUCCESS",
+        "result_count": 2,
+        "return_code": None,
+        "error_summary": "",
+    } in json_export["collection_status"]
     assert json_export["screenshot_changes"]["added_screenshots"] == ["https://a.example.com"]
     assert json_export["prioritized_assets"][0]["url"] == "https://a.example.com"
     assert json_export["prioritized_assets"][0]["score"] == 15
@@ -333,6 +362,74 @@ def test_run_workflow_prints_startup_progress_and_summary(
     assert "Run completeness: COMPLETE" in output
     assert f"Report: {reports_dir / 'example.com.md'}" in output
     assert f"- {processed_dir / 'subdomains.txt'}" in output
+
+
+def test_run_workflow_probes_root_and_www_when_subdomain_discovery_is_empty(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    config_path = tmp_path / "config.yaml"
+    reports_dir = tmp_path / "reports"
+    config_path.write_text(
+        (
+            f"logging:\n  file: {tmp_path / 'reconbot.log'}\n"
+            f"output:\n  processed_dir: {tmp_path / 'processed'}\n"
+            f"  reports_dir: {reports_dir}\n"
+            f"  json_exports_dir: {reports_dir / 'json'}\n"
+            "tools:\n"
+            "  subfinder:\n"
+            "    enabled: false\n"
+            "  assetfinder:\n"
+            "    enabled: false\n"
+            "  crtsh:\n"
+            "    enabled: false\n"
+            "  httpx:\n"
+            "    enabled: true\n"
+            "  gau:\n"
+            "    enabled: false\n"
+            "  waybackurls:\n"
+            "    enabled: false\n"
+            "  screenshots:\n"
+            "    enabled: false\n"
+        ),
+        encoding="utf-8",
+    )
+    probed_hosts: list[str] = []
+
+    def fake_find_live_urls(
+        candidates: list[str],
+        *,
+        binary: str,
+        timeout: float,
+        collection_statuses: object = None,
+    ) -> list[str]:
+        probed_hosts.extend(candidates)
+        return ["https://example.com", "https://www.example.com"]
+
+    monkeypatch.setattr(main, "validate_required_tools", lambda tool_names: None)
+    monkeypatch.setattr(main, "find_live_urls", fake_find_live_urls)
+    monkeypatch.setattr(main, "fingerprint_urls", lambda urls, **kwargs: {})
+
+    main.run_workflow("example.com", config_path, verbose=False)
+
+    assert probed_hosts == ["example.com", "www.example.com"]
+    export = json.loads((reports_dir / "json" / "example-com.json").read_text())
+    assert export["live_host_candidate_seeds"] == ["example.com", "www.example.com"]
+    assert {
+        "source": "seed-hosts",
+        "target": "example.com",
+        "status": "SUCCESS",
+        "result_count": 2,
+        "return_code": None,
+        "error_summary": "",
+    } in export["collection_status"]
+
+
+def test_seed_hosts_normalize_and_deduplicate_root_and_www() -> None:
+    assert main._seed_hosts(" Example.COM. ") == ["example.com", "www.example.com"]
+    assert main._dedupe_hosts(
+        ["example.com", "EXAMPLE.COM.", "www.example.com", " WWW.EXAMPLE.COM "]
+    ) == ["example.com", "www.example.com"]
 
 
 def test_run_workflow_skips_disabled_tools(tmp_path: Path, monkeypatch: MonkeyPatch) -> None:

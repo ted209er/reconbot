@@ -69,7 +69,7 @@ from reconbot.url_intelligence import (
     summarize_historical_urls,
     write_historical_url_tsv,
 )
-from reconbot.utils.normalize import safe_filename
+from reconbot.utils.normalize import normalize_hostname, safe_filename
 from reconbot.workspaces import WorkspacePaths, ensure_workspace, resolve_workspace
 
 REQUIRED_EXTERNAL_TOOLS = (
@@ -164,26 +164,27 @@ def run_workflow(
     _record_result(report, "subfinder", subdomains)
     subdomains_path = processed_dir / "subdomains.txt"
     _write_lines(subdomains_path, subdomains)
+    seed_hosts = _seed_hosts(target.domain)
+    live_host_candidates = _dedupe_hosts([*seed_hosts, *subdomains])
+    collection_statuses.append(
+        CollectionStatus(
+            source="seed-hosts",
+            target=target.domain,
+            status=CollectionState.SUCCESS,
+            result_count=len(seed_hosts),
+        )
+    )
 
     httpx_settings = tool_settings["httpx"]
     if httpx_settings.enabled:
         _print_stage("Live host detection")
         logger.info("Running live host detection")
         live_urls = find_live_urls(
-            subdomains,
+            live_host_candidates,
             binary=httpx_settings.binary,
             timeout=httpx_settings.timeout,
             collection_statuses=collection_statuses,
         )
-        if not subdomains:
-            collection_statuses.append(
-                CollectionStatus(
-                    source="httpx",
-                    target=target.domain,
-                    status=CollectionState.ZERO_RESULTS,
-                    result_count=0,
-                )
-            )
     else:
         logger.info("Skipping live host detection because httpx is disabled")
         collection_statuses.append(disabled_status(source="httpx", target=target.domain))
@@ -251,7 +252,7 @@ def run_workflow(
         screenshots = {}
 
     _print_stage("Historical URL collection")
-    historical_targets: str | list[str] = _hosts_from_urls(live_urls) or target.domain
+    historical_targets = _dedupe_hosts([*seed_hosts, *_hosts_from_urls(live_urls)])
     historical_url_sources = _discover_historical_urls(
         historical_targets,
         tool_settings,
@@ -406,6 +407,7 @@ def run_workflow(
         screenshot_diagnostics,
         historical_url_intelligence,
         historical_url_summary,
+        seed_hosts,
     )
     json_export_path = json_exports_dir / f"{safe_filename(target.domain)}.json"
     if write_json:
@@ -437,6 +439,7 @@ def run_workflow(
             screenshot_diagnostics=screenshot_diagnostics,
             historical_url_intelligence=historical_url_intelligence,
             asset_diff=diff_items,
+            seed_hosts=seed_hosts,
         )
         write_json_export(json_export, json_export_path)
         logger.info("Wrote JSON export to %s", json_export_path)
@@ -569,6 +572,17 @@ def _dedupe_sorted(values: Iterable[list[str]]) -> list[str]:
     for value_list in values:
         merged.update(value_list)
     return sorted(merged)
+
+
+def _seed_hosts(domain: str) -> list[str]:
+    """Return deterministic root and www live-host candidates."""
+    root = normalize_hostname(domain)
+    return _dedupe_hosts([root, f"www.{root}"])
+
+
+def _dedupe_hosts(hosts: Iterable[str]) -> list[str]:
+    """Normalize and deduplicate hostname candidates."""
+    return sorted({normalized for host in hosts if (normalized := normalize_hostname(host))})
 
 
 def _source_counts(sources: dict[str, list[str]]) -> dict[str, int]:
