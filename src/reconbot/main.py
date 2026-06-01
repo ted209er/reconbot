@@ -9,6 +9,13 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from reconbot.cli import parse_args
+from reconbot.collection_status import (
+    CollectionState,
+    CollectionStatus,
+    RunCompleteness,
+    determine_run_completeness,
+    disabled_status,
+)
 from reconbot.config import Config, get_bool, get_float, get_path, get_section, get_str, load_config
 from reconbot.config_loader import get_default_config_path, load_default_config
 from reconbot.doctor import HealthStatus, format_doctor_output, overall_status, run_doctor
@@ -28,6 +35,7 @@ from reconbot.history import (
     get_previous_subdomains,
     get_previous_technologies,
     initialize_database,
+    record_collection_statuses,
     record_live_urls,
     record_run,
     record_screenshots,
@@ -114,6 +122,7 @@ def run_workflow(
 
     target = ReconTarget(domain=domain, config_path=effective_config_path)
     report = ReconReport(target=target)
+    collection_statuses: list[CollectionStatus] = []
 
     _print_startup_banner(
         target.domain,
@@ -136,7 +145,12 @@ def run_workflow(
     validate_required_tools(_enabled_binaries(tool_settings))
 
     _print_stage("Subdomain discovery")
-    subdomain_sources = _discover_subdomains(target.domain, tool_settings, logger)
+    subdomain_sources = _discover_subdomains(
+        target.domain,
+        tool_settings,
+        logger,
+        collection_statuses,
+    )
     subdomains = _dedupe_sorted(subdomain_sources.values())
     _record_result(report, "subfinder", subdomains)
     subdomains_path = processed_dir / "subdomains.txt"
@@ -150,9 +164,20 @@ def run_workflow(
             subdomains,
             binary=httpx_settings.binary,
             timeout=httpx_settings.timeout,
+            collection_statuses=collection_statuses,
         )
+        if not subdomains:
+            collection_statuses.append(
+                CollectionStatus(
+                    source="httpx",
+                    target=target.domain,
+                    status=CollectionState.ZERO_RESULTS,
+                    result_count=0,
+                )
+            )
     else:
         logger.info("Skipping live host detection because httpx is disabled")
+        collection_statuses.append(disabled_status(source="httpx", target=target.domain))
         live_urls = []
     _record_result(report, "httpx", live_urls)
     live_urls_path = processed_dir / "live_urls.txt"
@@ -199,9 +224,20 @@ def run_workflow(
             output_dir=screenshots_dir,
             binary=screenshot_settings.binary,
             timeout=screenshot_settings.timeout,
+            collection_statuses=collection_statuses,
         )
+        if not live_urls:
+            collection_statuses.append(
+                CollectionStatus(
+                    source="gowitness",
+                    target=target.domain,
+                    status=CollectionState.ZERO_RESULTS,
+                    result_count=0,
+                )
+            )
     else:
         logger.info("Skipping screenshot capture because screenshots are disabled")
+        collection_statuses.append(disabled_status(source="gowitness", target=target.domain))
         screenshots = {}
 
     _print_stage("Historical URL collection")
@@ -210,6 +246,7 @@ def run_workflow(
         historical_targets,
         tool_settings,
         logger,
+        collection_statuses,
     )
     historical_urls = _dedupe_sorted(historical_url_sources.values())
     _record_result(report, "gau", historical_urls)
@@ -276,6 +313,7 @@ def run_workflow(
         screenshot_urls=list(screenshots),
     )
     guidance_summary = summarize_guidance(investigation_guidance)
+    run_status = determine_run_completeness(collection_statuses)
     report.complete()
     if report.finished_at is None:
         raise RuntimeError("report completion timestamp was not set")
@@ -288,6 +326,7 @@ def run_workflow(
         live_url_count=len(live_urls),
         url_count=len(historical_urls),
         profile=profile.value,
+        run_status=run_status.value,
         database_path=database_path,
     )
     record_subdomains(run_id=run_id, subdomains=subdomains, database_path=database_path)
@@ -301,6 +340,11 @@ def run_workflow(
         run_id=run_id,
         screenshots=screenshots,
         captured_at=report.finished_at,
+        database_path=database_path,
+    )
+    record_collection_statuses(
+        run_id=run_id,
+        statuses=collection_statuses,
         database_path=database_path,
     )
     output_files = {
@@ -331,6 +375,8 @@ def run_workflow(
         asset_category_summary,
         investigation_guidance,
         guidance_summary,
+        collection_statuses,
+        run_status,
     )
     json_export_path = json_exports_dir / f"{safe_filename(target.domain)}.json"
     if write_json:
@@ -357,6 +403,8 @@ def run_workflow(
             asset_category_summary=asset_category_summary,
             investigation_guidance=investigation_guidance,
             guidance_summary=guidance_summary,
+            collection_statuses=collection_statuses,
+            run_status=run_status,
         )
         write_json_export(json_export, json_export_path)
         logger.info("Wrote JSON export to %s", json_export_path)
@@ -377,6 +425,7 @@ def run_workflow(
         subdomain_count=len(subdomains),
         live_url_count=len(live_urls),
         historical_url_count=len(historical_urls),
+        run_status=run_status,
     )
     return report
 
@@ -423,6 +472,7 @@ def _discover_subdomains(
     domain: str,
     tool_settings: dict[str, ToolSettings],
     logger: logging.Logger,
+    collection_statuses: list[CollectionStatus],
 ) -> dict[str, list[str]]:
     """Run enabled passive subdomain sources."""
     results: dict[str, list[str]] = {}
@@ -435,6 +485,8 @@ def _discover_subdomains(
         settings = tool_settings[source_name]
         if not settings.enabled:
             logger.info("Skipping %s because it is disabled", source_name)
+            status_source = "crt.sh" if source_name == "crtsh" else source_name
+            collection_statuses.append(disabled_status(source=status_source, target=domain))
             results[source_name] = []
             continue
         logger.info("Running %s subdomain discovery", source_name)
@@ -442,6 +494,7 @@ def _discover_subdomains(
             domain,
             binary=settings.binary,
             timeout=settings.timeout,
+            collection_statuses=collection_statuses,
         )
     return results
 
@@ -450,6 +503,7 @@ def _discover_historical_urls(
     targets: str | list[str],
     tool_settings: dict[str, ToolSettings],
     logger: logging.Logger,
+    collection_statuses: list[CollectionStatus],
 ) -> dict[str, list[str]]:
     """Run enabled passive historical URL sources."""
     results: dict[str, list[str]] = {}
@@ -461,6 +515,9 @@ def _discover_historical_urls(
         settings = tool_settings[source_name]
         if not settings.enabled:
             logger.info("Skipping %s because it is disabled", source_name)
+            collection_statuses.append(
+                disabled_status(source=source_name, target=_status_target(targets))
+            )
             results[source_name] = []
             continue
         logger.info("Running %s historical URL collection", source_name)
@@ -468,6 +525,7 @@ def _discover_historical_urls(
             targets,
             binary=settings.binary,
             timeout=settings.timeout,
+            collection_statuses=collection_statuses,
         )
     return results
 
@@ -528,6 +586,7 @@ def _print_completion(
     subdomain_count: int,
     live_url_count: int,
     historical_url_count: int,
+    run_status: RunCompleteness,
 ) -> None:
     """Print concise completion details."""
     print("Complete")
@@ -537,6 +596,7 @@ def _print_completion(
         f"{live_url_count} live URLs, "
         f"{historical_url_count} historical URLs"
     )
+    print(f"Run completeness: {run_status.value}")
     print(f"Report: {report_path}")
     print("Outputs:")
     for path in output_paths:
@@ -574,6 +634,13 @@ def _hosts_from_urls(urls: list[str]) -> list[str]:
     """Extract sorted unique hostnames from HTTP URLs."""
     hosts = {parsed.netloc for url in urls if (parsed := urlparse(url)).netloc}
     return sorted(hosts)
+
+
+def _status_target(targets: str | list[str]) -> str:
+    """Return a concise deterministic target label for disabled collectors."""
+    if isinstance(targets, str):
+        return targets
+    return ", ".join(sorted(targets))
 
 
 def main(argv: Sequence[str] | None = None) -> int:

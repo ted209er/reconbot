@@ -2,6 +2,7 @@ from collections.abc import Sequence
 
 from pytest import MonkeyPatch
 
+from reconbot.collection_status import CollectionState, CollectionStatus
 from reconbot.models import ToolResult
 from reconbot.tools import httpx
 
@@ -25,12 +26,21 @@ def test_find_live_urls_calls_httpx_for_each_subdomain(monkeypatch: MonkeyPatch)
 
     monkeypatch.setattr(httpx, "run_command", fake_run_command)
 
-    result = httpx.find_live_urls(["a.example.com", "b.example.com"], timeout=30)
+    statuses: list[CollectionStatus] = []
+    result = httpx.find_live_urls(
+        ["a.example.com", "b.example.com"],
+        timeout=30,
+        collection_statuses=statuses,
+    )
 
     assert result == ["https://a.example.com", "https://b.example.com"]
     assert calls == [
         ("httpx", ["httpx", "-silent", "-u", "a.example.com"], 30),
         ("httpx", ["httpx", "-silent", "-u", "b.example.com"], 30),
+    ]
+    assert [status.status for status in statuses] == [
+        CollectionState.SUCCESS,
+        CollectionState.SUCCESS,
     ]
 
 

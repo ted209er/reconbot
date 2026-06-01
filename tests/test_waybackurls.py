@@ -2,6 +2,7 @@ from collections.abc import Sequence
 
 from pytest import MonkeyPatch
 
+from reconbot.collection_status import CollectionState, CollectionStatus
 from reconbot.models import ToolResult
 from reconbot.tools import waybackurls
 
@@ -25,12 +26,21 @@ def test_find_urls_calls_waybackurls_for_each_target(monkeypatch: MonkeyPatch) -
 
     monkeypatch.setattr(waybackurls, "run_command", fake_run_command)
 
-    result = waybackurls.find_urls(["a.example.com", " ", "b.example.com"], timeout=30)
+    statuses: list[CollectionStatus] = []
+    result = waybackurls.find_urls(
+        ["a.example.com", " ", "b.example.com"],
+        timeout=30,
+        collection_statuses=statuses,
+    )
 
     assert result == ["https://a.example.com/path", "https://b.example.com/path"]
     assert calls == [
         ("waybackurls", ["waybackurls", "a.example.com"], 30),
         ("waybackurls", ["waybackurls", "b.example.com"], 30),
+    ]
+    assert [status.status for status in statuses] == [
+        CollectionState.SUCCESS,
+        CollectionState.SUCCESS,
     ]
 
 

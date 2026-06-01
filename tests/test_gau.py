@@ -2,6 +2,7 @@ from collections.abc import Sequence
 
 from pytest import MonkeyPatch
 
+from reconbot.collection_status import CollectionState, CollectionStatus
 from reconbot.models import ToolResult
 from reconbot.tools import gau
 
@@ -25,10 +26,12 @@ def test_find_urls_calls_gau_with_domain(monkeypatch: MonkeyPatch) -> None:
 
     monkeypatch.setattr(gau, "run_command", fake_run_command)
 
-    result = gau.find_urls("example.com", timeout=30)
+    statuses: list[CollectionStatus] = []
+    result = gau.find_urls("example.com", timeout=30, collection_statuses=statuses)
 
     assert result == ["https://example.com/a", "https://example.com/b"]
     assert calls == [("gau", ["gau", "example.com"], 30)]
+    assert statuses[0].status == CollectionState.SUCCESS
 
 
 def test_find_urls_accepts_live_host_list(monkeypatch: MonkeyPatch) -> None:

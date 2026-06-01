@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from pathlib import Path
 
+from reconbot.collection_status import CollectionStatus, RunCompleteness
 from reconbot.guidance import AssetGuidance
 from reconbot.models import ReconReport
 from reconbot.prioritization import PrioritizedAsset
@@ -35,6 +36,8 @@ def write_markdown_report(
     asset_category_summary: Mapping[str, int] | None = None,
     investigation_guidance: list[AssetGuidance] | None = None,
     guidance_summary: Mapping[str, int] | None = None,
+    collection_statuses: list[CollectionStatus] | None = None,
+    run_status: RunCompleteness = RunCompleteness.COMPLETE,
 ) -> Path:
     """Write a plain markdown report to disk."""
     report_path.parent.mkdir(parents=True, exist_ok=True)
@@ -57,6 +60,8 @@ def write_markdown_report(
         asset_category_summary,
         investigation_guidance,
         guidance_summary,
+        collection_statuses,
+        run_status,
     )
     report_path.write_text(markdown, encoding="utf-8")
     return report_path
@@ -81,6 +86,8 @@ def build_markdown_report(
     asset_category_summary: Mapping[str, int] | None = None,
     investigation_guidance: list[AssetGuidance] | None = None,
     guidance_summary: Mapping[str, int] | None = None,
+    collection_statuses: list[CollectionStatus] | None = None,
+    run_status: RunCompleteness = RunCompleteness.COMPLETE,
 ) -> str:
     """Build a plain markdown report for a recon run."""
     lines = [
@@ -89,6 +96,7 @@ def build_markdown_report(
         f"- Target domain: `{report.target.domain}`",
         f"- Run name: `{run_name or 'default'}`",
         f"- Profile: `{profile}`",
+        f"- Run completeness: `{run_status.value}`",
         f"- Execution timestamp: `{report.started_at.isoformat()}`",
         f"- Subdomain count: {_result_count(report, 'subfinder')}",
         f"- Live host count: {_result_count(report, 'httpx')}",
@@ -97,6 +105,8 @@ def build_markdown_report(
     ]
     if workspace_path is not None:
         lines.extend(["Workspace:", "", f"    {workspace_path}", ""])
+    if collection_statuses is not None:
+        lines.extend(_build_collection_quality_section(collection_statuses, run_status))
     if diff_items is not None:
         lines.extend(_build_diff_section(diff_items))
     if technology_summary is not None:
@@ -140,6 +150,30 @@ def _build_diff_section(diff_items: Mapping[str, list[str]]) -> list[str]:
     lines.extend(_format_changed_items("-", removed_subdomains))
     lines.extend(_format_changed_items("+", added_live_urls))
     lines.extend(_format_changed_items("-", removed_live_urls))
+    lines.append("")
+    return lines
+
+
+def _build_collection_quality_section(
+    statuses: list[CollectionStatus],
+    run_status: RunCompleteness,
+) -> list[str]:
+    """Build human-readable collection quality evidence."""
+    lines = ["## Collection Quality", "", f"- Run completeness: {run_status.value}", ""]
+    if not statuses:
+        lines.extend(["- No collection status evidence recorded", ""])
+        return lines
+
+    for status in sorted(statuses, key=lambda item: (item.source, item.target, item.status.value)):
+        details = [
+            f"status={status.status.value}",
+            f"results={status.result_count}",
+        ]
+        if status.return_code is not None:
+            details.append(f"return_code={status.return_code}")
+        lines.append(f"- {status.source} [{status.target}]: " + ", ".join(details))
+        if status.error_summary:
+            lines.append(f"  Error: {status.error_summary}")
     lines.append("")
     return lines
 

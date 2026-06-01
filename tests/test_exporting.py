@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 
+from reconbot.collection_status import CollectionState, CollectionStatus, RunCompleteness
 from reconbot.exporting import build_json_export, write_json_export
 from reconbot.guidance import AssetGuidance, SuggestedCheck
 from reconbot.models import ReconReport, ReconTarget
@@ -73,11 +74,16 @@ def test_build_json_export_includes_expected_structure() -> None:
             )
         ],
         guidance_summary={"General": 1},
+        collection_statuses=[
+            CollectionStatus("subfinder", "example.com", CollectionState.SUCCESS, 2, 0),
+        ],
+        run_status=RunCompleteness.COMPLETE,
     )
 
     assert export["target"] == "example.com"
     assert export["run_name"] == "daily"
     assert export["profile"] == "deep"
+    assert export["run_status"] == "COMPLETE"
     assert export["completed_at"] is not None
     assert export["report_path"] == "reports/example.com.md"
     assert export["counts"] == {
@@ -122,6 +128,16 @@ def test_build_json_export_includes_expected_structure() -> None:
         "subdomains": {"assetfinder": 1, "crtsh": 3, "subfinder": 2},
         "historical_urls": {"gau": 1, "waybackurls": 2},
     }
+    assert export["collection_status"] == [
+        {
+            "source": "subfinder",
+            "target": "example.com",
+            "status": "SUCCESS",
+            "result_count": 2,
+            "return_code": 0,
+            "error_summary": "",
+        }
+    ]
 
 
 def test_build_json_export_sorts_change_lists() -> None:

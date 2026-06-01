@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 
+from reconbot.collection_status import CollectionStatus, status_from_result
 from reconbot.models import ToolResult
 from reconbot.utils.subprocess_runner import run_command
 
@@ -17,6 +18,7 @@ def find_live_urls(
     *,
     binary: str = DEFAULT_BINARY,
     timeout: float = DEFAULT_TIMEOUT_SECONDS,
+    collection_statuses: list[CollectionStatus] | None = None,
 ) -> list[str]:
     """Run httpx for subdomains and return sorted unique live HTTP/HTTPS URLs."""
     live_urls: set[str] = set()
@@ -30,11 +32,21 @@ def find_live_urls(
             [binary, "-silent", "-u", target],
             timeout=timeout,
         )
+        parsed_urls = parse_live_urls(result.output) if result.success else []
+        if collection_statuses is not None:
+            collection_statuses.append(
+                status_from_result(
+                    source="httpx",
+                    target=target,
+                    result=result,
+                    result_count=len(parsed_urls),
+                )
+            )
         if not result.success:
             LOGGER.warning("httpx failed for %s with code %s", target, result.return_code)
             continue
 
-        live_urls.update(parse_live_urls(result.output))
+        live_urls.update(parsed_urls)
 
     return sorted(live_urls)
 

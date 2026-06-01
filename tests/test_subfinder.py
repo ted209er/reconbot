@@ -2,6 +2,7 @@ from collections.abc import Sequence
 
 from pytest import MonkeyPatch
 
+from reconbot.collection_status import CollectionState, CollectionStatus
 from reconbot.models import ToolResult
 from reconbot.tools import subfinder
 
@@ -25,10 +26,12 @@ def test_find_subdomains_calls_subfinder_with_domain(monkeypatch: MonkeyPatch) -
 
     monkeypatch.setattr(subfinder, "run_command", fake_run_command)
 
-    result = subfinder.find_subdomains("example.com", timeout=30)
+    statuses: list[CollectionStatus] = []
+    result = subfinder.find_subdomains("example.com", timeout=30, collection_statuses=statuses)
 
     assert result == ["a.example.com", "b.example.com"]
     assert calls == [("subfinder", ["subfinder", "-silent", "-d", "example.com"], 30)]
+    assert statuses[0].status == CollectionState.SUCCESS
 
 
 def test_parse_subdomains_deduplicates_sorts_and_filters() -> None:

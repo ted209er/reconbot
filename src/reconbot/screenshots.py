@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
+from reconbot.collection_status import CollectionStatus, status_from_result
 from reconbot.tools.gowitness import run_screenshot_capture
 from reconbot.utils.normalize import safe_filename
 
@@ -19,6 +20,7 @@ def capture_screenshot(
     output_dir: Path,
     binary: str = DEFAULT_BINARY,
     timeout: float = DEFAULT_TIMEOUT_SECONDS,
+    collection_statuses: list[CollectionStatus] | None = None,
 ) -> Path | None:
     """Capture one live URL screenshot with gowitness."""
     target = url.strip()
@@ -33,6 +35,15 @@ def capture_screenshot(
         binary=binary,
         timeout=timeout,
     )
+    if collection_statuses is not None:
+        collection_statuses.append(
+            status_from_result(
+                source="gowitness",
+                target=target,
+                result=result,
+                result_count=int(result.success),
+            )
+        )
     if not result.success:
         LOGGER.warning("gowitness failed for %s with code %s", target, result.return_code)
         return None
@@ -45,6 +56,7 @@ def capture_screenshots(
     output_dir: Path,
     binary: str = DEFAULT_BINARY,
     timeout: float = DEFAULT_TIMEOUT_SECONDS,
+    collection_statuses: list[CollectionStatus] | None = None,
 ) -> dict[str, Path]:
     """Capture screenshots for live URLs and return paths keyed by URL."""
     screenshots: dict[str, Path] = {}
@@ -57,6 +69,7 @@ def capture_screenshots(
             output_dir=output_dir,
             binary=binary,
             timeout=timeout,
+            collection_statuses=collection_statuses,
         )
         if screenshot_path is not None:
             screenshots[target] = screenshot_path

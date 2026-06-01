@@ -30,6 +30,9 @@ Reconbot uses simple semantic versioning:
   markdown output, and structured JSON export metadata.
 - Added deterministic investigation guidance for safe manual follow-up using
   existing passive findings, with markdown plans and structured JSON exports.
+- Added typed collection quality evidence for passive sources, including
+  success, zero-result, failure, timeout, and disabled states; SQLite history;
+  JSON export metadata; markdown reporting; and deterministic run completeness.
 
 ## [0.1.0] - Initial MVP
 

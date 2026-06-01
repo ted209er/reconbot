@@ -3,6 +3,7 @@ from pathlib import Path
 from pytest import MonkeyPatch
 
 from reconbot import screenshots
+from reconbot.collection_status import CollectionState, CollectionStatus
 from reconbot.models import ToolResult
 
 
@@ -21,17 +22,21 @@ def test_capture_screenshot_calls_gowitness(monkeypatch: MonkeyPatch, tmp_path: 
 
     monkeypatch.setattr(screenshots, "run_screenshot_capture", fake_run_screenshot_capture)
 
+    statuses: list[CollectionStatus] = []
     result = screenshots.capture_screenshot(
         "https://admin.example.com/login",
         output_dir=tmp_path,
         binary="custom-gowitness",
         timeout=30,
+        collection_statuses=statuses,
     )
 
     assert result == tmp_path / "https-admin-example-com-login.png"
     assert calls == [
         ("https://admin.example.com/login", tmp_path, "custom-gowitness", 30),
     ]
+    assert statuses[0].source == "gowitness"
+    assert statuses[0].status == CollectionState.SUCCESS
 
 
 def test_capture_screenshot_returns_none_on_failure(
@@ -59,6 +64,7 @@ def test_capture_screenshots_skips_blank_urls(monkeypatch: MonkeyPatch, tmp_path
         output_dir: Path,
         binary: str,
         timeout: float,
+        collection_statuses: object = None,
     ) -> Path:
         return output_dir / f"{url}.png"
 
