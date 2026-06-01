@@ -29,6 +29,8 @@ modules must preserve this boundary.
 - `src/reconbot/main.py` contains the placeholder orchestration flow.
 - `src/reconbot/profiles.py` applies lightweight passive scan profiles to
   existing tool settings.
+- `src/reconbot/planning.py` builds local-only investigation dossiers from
+  existing workspace artifacts.
 - `src/reconbot/url_intelligence.py` classifies passive historical URLs into
   explainable investigation leads.
 - `src/reconbot/workspaces.py` resolves and creates optional engagement
@@ -171,6 +173,31 @@ reconbot \
   --workspace ~/Recon/hackerone/example
 ```
 
+## Investigation Dossier
+
+After a workspace run, generate a prioritized manual review dossier without
+performing recon or contacting targets:
+
+```bash
+reconbot plan --workspace ~/Recon/hackerone/example
+```
+
+The command reads existing workspace JSON exports, SQLite run history, and
+`scope.txt`, then writes:
+
+```text
+reports/investigation-plan.md
+reports/investigation-plan.json
+```
+
+The dossier combines collection quality, changes, asset and technology
+categories, historical URL intelligence, prioritization scores, and safe manual
+investigation guidance. It distinguishes `Current Observation` from
+`Historical Lead`, marks archived URL reachability as `unverified`, and flags
+`Unknown Scope` assets for owner confirmation. It does not run recon, invoke
+external tools, contact targets, make vulnerability claims, or automate
+testing.
+
 Reconbot creates the workspace if needed:
 
 ```text
@@ -195,6 +222,7 @@ reconbot --domain example.com --config configs/default.yaml --verbose
 reconbot --domain example.com --config configs/default.yaml --run-name daily
 reconbot --domain example.com --workspace ~/Recon/hackerone/example
 reconbot doctor --workspace ~/Recon/hackerone/example
+reconbot plan --workspace ~/Recon/hackerone/example
 ```
 
 Startup output shows the target, config path, enabled tools and configured

@@ -98,6 +98,7 @@ def test_build_json_export_includes_expected_structure() -> None:
         historical_url_intelligence=classify_historical_urls(
             {"gau": ["https://example.com/login"]}
         ),
+        asset_diff={"added_live_urls": ["https://a.example.com"]},
     )
 
     assert export["target"] == "example.com"
@@ -177,6 +178,7 @@ def test_build_json_export_includes_expected_structure() -> None:
             "reasons": ["Authentication: keyword: login"],
         }
     ]
+    assert export["asset_changes"] == {"added_live_urls": ["https://a.example.com"]}
 
 
 def test_build_json_export_sorts_change_lists() -> None:

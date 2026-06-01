@@ -46,6 +46,7 @@ from reconbot.history import (
 )
 from reconbot.logging_config import setup_logging
 from reconbot.models import ReconReport, ReconTarget, ToolResult
+from reconbot.planning import PlanningError, generate_review_dossier
 from reconbot.prioritization import prioritize_assets
 from reconbot.profiles import ProfileToolSettings, ScanProfile, apply_profile
 from reconbot.reporting import write_markdown_report
@@ -435,6 +436,7 @@ def run_workflow(
             run_status=run_status,
             screenshot_diagnostics=screenshot_diagnostics,
             historical_url_intelligence=historical_url_intelligence,
+            asset_diff=diff_items,
         )
         write_json_export(json_export, json_export_path)
         logger.info("Wrote JSON export to %s", json_export_path)
@@ -686,6 +688,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         if status == HealthStatus.WARNINGS:
             return 1
         return 2
+    if args.command == "plan":
+        try:
+            dossier_paths = generate_review_dossier(args.workspace)
+        except PlanningError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return 2
+        print("Investigation plan generated")
+        print(f"- {dossier_paths.markdown}")
+        print(f"- {dossier_paths.json}")
+        return 0
 
     try:
         run_workflow(

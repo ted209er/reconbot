@@ -58,6 +58,18 @@ def test_parse_args_accepts_doctor_workspace(tmp_path: Path) -> None:
     assert args.workspace == tmp_path / "workspace"
 
 
+def test_parse_args_accepts_plan_workspace(tmp_path: Path) -> None:
+    args = parse_args(["plan", "--workspace", str(tmp_path / "workspace")])
+
+    assert args.command == "plan"
+    assert args.workspace == tmp_path / "workspace"
+
+
+def test_parse_args_requires_plan_workspace() -> None:
+    with pytest.raises(SystemExit):
+        parse_args(["plan"])
+
+
 def test_parse_args_accepts_scan_profile() -> None:
     args = parse_args(["--domain", "example.com", "--profile", "deep"])
 

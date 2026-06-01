@@ -358,3 +358,60 @@ explainable leads for authorized manual investigation.
 
 - `make validate`
 - `git diff --check`
+
+## Review Dossier
+
+### Purpose
+
+Generate a local-only investigation dossier that combines existing workspace
+evidence into a prioritized, explainable manual review plan.
+
+### Files Added
+
+- `src/reconbot/planning.py`
+- `tests/test_planning.py`
+
+### Files Modified
+
+- `src/reconbot/cli.py`
+- `src/reconbot/main.py`
+- `src/reconbot/exporting.py`
+- `tests/test_cli.py`
+- `tests/test_exporting.py`
+- `README.md`
+- `docs/architecture.md`
+- `CHANGELOG.md`
+- `docs/feature-history.md`
+
+### New Commands
+
+```bash
+reconbot plan --workspace PATH
+```
+
+### Design Decisions
+
+- Read existing workspace JSON exports, matching SQLite run history in
+  read-only mode, and `scope.txt`.
+- Write `reports/investigation-plan.md` and
+  `reports/investigation-plan.json` under the workspace.
+- Combine collection quality, changes, asset and technology categories,
+  historical URL intelligence, prioritization scores, and safe manual
+  investigation guidance.
+- Clearly distinguish `Current Observation` from `Historical Lead`, and
+  `In Scope` from `Unknown Scope`.
+- Retain `unverified` reachability for archived URL leads and flag unknown-scope
+  assets for owner confirmation.
+- Keep planning local-only: no recon, target contact, external tools,
+  AI-generated findings, vulnerability claims, or automated testing.
+
+### Follow-Up Opportunities
+
+- Add an optional run selector when users need dossiers for older workspace
+  exports.
+- Add offline filters for large dossiers if users need narrower review queues.
+
+### Verification Results
+
+- `make validate`
+- `git diff --check`
