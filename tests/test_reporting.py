@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from reconbot.collection_status import CollectionState, CollectionStatus, RunCompleteness
 from reconbot.guidance import AssetGuidance, SuggestedCheck
 from reconbot.models import ReconReport, ReconTarget, ToolResult
 from reconbot.prioritization import PrioritizedAsset
@@ -34,11 +35,38 @@ def test_build_markdown_report_includes_summary_and_output_paths() -> None:
     assert "- Target domain: `example.com`" in markdown
     assert "- Run name: `default`" in markdown
     assert "- Profile: `standard`" in markdown
+    assert "- Run completeness: `COMPLETE`" in markdown
     assert "- Execution timestamp: `" in markdown
     assert "- Subdomain count: 1" in markdown
     assert "- Live host count: 1" in markdown
     assert "- URL count: 2" in markdown
     assert "- Subdomains: `data/processed/subdomains.txt`" in markdown
+
+
+def test_build_markdown_report_includes_collection_quality() -> None:
+    report = ReconReport(
+        target=ReconTarget(domain="example.com", config_path=Path("config.yaml"))
+    )
+
+    markdown = build_markdown_report(
+        report,
+        {
+            "subdomains": Path("subdomains.txt"),
+            "live_hosts": Path("live_urls.txt"),
+            "historical_urls": Path("historical_urls.txt"),
+        },
+        collection_statuses=[
+            CollectionStatus("subfinder", "example.com", CollectionState.SUCCESS, 2, 0),
+            CollectionStatus("gau", "example.com", CollectionState.FAILED, 0, 2, "failed"),
+        ],
+        run_status=RunCompleteness.PARTIAL,
+    )
+
+    assert "## Collection Quality" in markdown
+    assert "- Run completeness: PARTIAL" in markdown
+    assert "- gau [example.com]: status=FAILED, results=0, return_code=2" in markdown
+    assert "  Error: failed" in markdown
+    assert "- subfinder [example.com]: status=SUCCESS, results=2, return_code=0" in markdown
 
 
 def test_write_markdown_report_writes_file(tmp_path: Path) -> None:

@@ -7,6 +7,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+from reconbot.collection_status import CollectionStatus, RunCompleteness
 from reconbot.guidance import AssetGuidance
 from reconbot.models import ReconReport
 from reconbot.prioritization import PrioritizedAsset
@@ -37,6 +38,8 @@ def build_json_export(
     asset_category_summary: Mapping[str, int] | None = None,
     investigation_guidance: list[AssetGuidance] | None = None,
     guidance_summary: Mapping[str, int] | None = None,
+    collection_statuses: list[CollectionStatus] | None = None,
+    run_status: RunCompleteness = RunCompleteness.COMPLETE,
 ) -> dict[str, Any]:
     """Build a deterministic JSON-serializable export."""
     screenshot_paths = {url: str(path) for url, path in sorted(screenshots.items())}
@@ -44,6 +47,7 @@ def build_json_export(
         "target": report.target.domain,
         "run_name": run_name,
         "profile": profile,
+        "run_status": run_status.value,
         "started_at": report.started_at.isoformat(),
         "completed_at": report.finished_at.isoformat() if report.finished_at else None,
         "workspace": str(workspace_path) if workspace_path is not None else None,
@@ -66,6 +70,7 @@ def build_json_export(
         "asset_category_summary": dict(asset_category_summary or {}),
         "investigation_guidance": _investigation_guidance(investigation_guidance or []),
         "investigation_guidance_summary": dict(guidance_summary or {}),
+        "collection_status": _collection_statuses(collection_statuses or []),
         "technology_changes": _sorted_change_lists(technology_diff),
         "screenshot_paths": screenshot_paths,
         "screenshot_changes": _sorted_change_lists(screenshot_diff),
@@ -157,4 +162,22 @@ def _investigation_guidance(guidance: list[AssetGuidance]) -> list[dict[str, obj
             ],
         }
         for asset in guidance
+    ]
+
+
+def _collection_statuses(statuses: list[CollectionStatus]) -> list[dict[str, object]]:
+    """Return deterministic JSON-serializable collection quality evidence."""
+    return [
+        {
+            "source": status.source,
+            "target": status.target,
+            "status": status.status.value,
+            "result_count": status.result_count,
+            "return_code": status.return_code,
+            "error_summary": status.error_summary,
+        }
+        for status in sorted(
+            statuses,
+            key=lambda item: (item.source, item.target, item.status.value),
+        )
     ]

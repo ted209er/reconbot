@@ -2,6 +2,7 @@ import sqlite3
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+from reconbot.collection_status import CollectionState, CollectionStatus
 from reconbot.history import (
     calculate_added_items,
     calculate_added_screenshots,
@@ -9,12 +10,14 @@ from reconbot.history import (
     calculate_removed_items,
     calculate_removed_screenshots,
     calculate_removed_technologies,
+    get_collection_statuses,
     get_previous_live_urls,
     get_previous_screenshots,
     get_previous_subdomains,
     get_previous_technologies,
     initialize_database,
     list_recent_runs,
+    record_collection_statuses,
     record_live_urls,
     record_run,
     record_screenshots,
@@ -54,6 +57,7 @@ def test_record_run_and_list_recent_runs(tmp_path: Path) -> None:
     assert runs[0].target == "example.com"
     assert runs[0].run_name == ""
     assert runs[0].profile == "standard"
+    assert runs[0].run_status == "COMPLETE"
     assert runs[0].started_at == started_at.isoformat()
     assert runs[0].completed_at == completed_at.isoformat()
     assert runs[0].subdomain_count == 2
@@ -249,3 +253,34 @@ def test_calculate_added_and_removed_screenshots_use_urls() -> None:
 
     assert calculate_added_screenshots(current, previous) == ["https://admin.example.com"]
     assert calculate_removed_screenshots(current, previous) == ["https://old.example.com"]
+
+
+def test_records_and_reads_collection_statuses(tmp_path: Path) -> None:
+    database_path = tmp_path / "reconbot.db"
+    started_at = datetime(2026, 5, 29, 12, 0, tzinfo=UTC)
+    run_id = record_run(
+        target="example.com",
+        run_status="PARTIAL",
+        started_at=started_at,
+        completed_at=started_at + timedelta(seconds=5),
+        subdomain_count=0,
+        live_url_count=0,
+        url_count=0,
+        database_path=database_path,
+    )
+    statuses = [
+        CollectionStatus("subfinder", "example.com", CollectionState.SUCCESS, 3, 0),
+        CollectionStatus("gau", "example.com", CollectionState.FAILED, 0, 2, "failed"),
+    ]
+
+    record_collection_statuses(
+        run_id=run_id,
+        statuses=statuses,
+        database_path=database_path,
+    )
+
+    assert list_recent_runs(database_path=database_path)[0].run_status == "PARTIAL"
+    assert get_collection_statuses(run_id=run_id, database_path=database_path) == [
+        statuses[1],
+        statuses[0],
+    ]

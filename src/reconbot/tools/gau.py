@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Sequence
 
+from reconbot.collection_status import CollectionStatus, status_from_result
 from reconbot.utils.subprocess_runner import run_command
 
 LOGGER = logging.getLogger(__name__)
@@ -17,6 +18,7 @@ def find_urls(
     *,
     binary: str = DEFAULT_BINARY,
     timeout: float = DEFAULT_TIMEOUT_SECONDS,
+    collection_statuses: list[CollectionStatus] | None = None,
 ) -> list[str]:
     """Run gau for a domain or live hosts and return sorted unique HTTP/HTTPS URLs."""
     urls: set[str] = set()
@@ -26,11 +28,21 @@ def find_urls(
             [binary, target],
             timeout=timeout,
         )
+        parsed_urls = parse_urls(result.output) if result.success else []
+        if collection_statuses is not None:
+            collection_statuses.append(
+                status_from_result(
+                    source="gau",
+                    target=target,
+                    result=result,
+                    result_count=len(parsed_urls),
+                )
+            )
         if not result.success:
             LOGGER.warning("gau failed for %s with code %s", target, result.return_code)
             continue
 
-        urls.update(parse_urls(result.output))
+        urls.update(parsed_urls)
 
     return sorted(urls)
 

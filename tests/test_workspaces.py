@@ -76,6 +76,7 @@ def test_run_workflow_writes_artifacts_to_workspace(
         *,
         binary: str,
         timeout: float,
+        collection_statuses: object = None,
     ) -> list[str]:
         return ["https://app.example.com"]
 
@@ -94,6 +95,7 @@ def test_run_workflow_writes_artifacts_to_workspace(
         output_dir: Path,
         binary: str,
         timeout: float,
+        collection_statuses: object = None,
     ) -> dict[str, Path]:
         output_dir.mkdir(parents=True, exist_ok=True)
         screenshot_path = output_dir / "https-app-example-com.png"

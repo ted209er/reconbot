@@ -2,6 +2,7 @@ from collections.abc import Sequence
 
 from pytest import MonkeyPatch
 
+from reconbot.collection_status import CollectionState, CollectionStatus
 from reconbot.models import ToolResult
 from reconbot.tools import crtsh
 
@@ -38,12 +39,20 @@ def test_find_subdomains_calls_crtsh_with_curl(monkeypatch: MonkeyPatch) -> None
 
     monkeypatch.setattr(crtsh, "run_command", fake_run_command)
 
-    result = crtsh.find_subdomains("example.com", binary="curl", timeout=30)
+    statuses: list[CollectionStatus] = []
+    result = crtsh.find_subdomains(
+        "example.com",
+        binary="curl",
+        timeout=30,
+        collection_statuses=statuses,
+    )
 
     assert result == ["a.example.com"]
     assert calls == [
         ("crtsh", ["curl", "-fsSL", "https://crt.sh/?q=%25.example.com&output=json"], 30)
     ]
+    assert statuses[0].source == "crt.sh"
+    assert statuses[0].status == CollectionState.SUCCESS
 
 
 def test_parse_crtsh_subdomains_returns_empty_list_for_invalid_json() -> None:

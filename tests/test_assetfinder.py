@@ -2,6 +2,7 @@ from collections.abc import Sequence
 
 from pytest import MonkeyPatch
 
+from reconbot.collection_status import CollectionState, CollectionStatus
 from reconbot.models import ToolResult
 from reconbot.tools import assetfinder
 
@@ -25,12 +26,19 @@ def test_find_subdomains_calls_assetfinder(monkeypatch: MonkeyPatch) -> None:
 
     monkeypatch.setattr(assetfinder, "run_command", fake_run_command)
 
-    result = assetfinder.find_subdomains("example.com", binary="custom-assetfinder", timeout=30)
+    statuses: list[CollectionStatus] = []
+    result = assetfinder.find_subdomains(
+        "example.com",
+        binary="custom-assetfinder",
+        timeout=30,
+        collection_statuses=statuses,
+    )
 
     assert result == ["a.example.com", "b.example.com"]
     assert calls == [
         ("assetfinder", ["custom-assetfinder", "--subs-only", "example.com"], 30)
     ]
+    assert statuses[0].status == CollectionState.SUCCESS
 
 
 def test_find_subdomains_returns_empty_list_on_failure(monkeypatch: MonkeyPatch) -> None:

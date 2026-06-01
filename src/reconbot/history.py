@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
+from reconbot.collection_status import CollectionState, CollectionStatus, RunCompleteness
+
 DEFAULT_DATABASE_PATH = Path("data/reconbot.db")
 
 
@@ -18,6 +20,7 @@ class RunHistoryEntry:
     target: str
     run_name: str
     profile: str
+    run_status: str
     started_at: str
     completed_at: str
     subdomain_count: int
@@ -36,6 +39,7 @@ def initialize_database(database_path: Path = DEFAULT_DATABASE_PATH) -> Path:
                 target TEXT NOT NULL,
                 run_name TEXT NOT NULL DEFAULT '',
                 profile TEXT NOT NULL DEFAULT 'standard',
+                run_status TEXT NOT NULL DEFAULT 'COMPLETE',
                 started_at TEXT NOT NULL,
                 completed_at TEXT NOT NULL,
                 subdomain_count INTEGER NOT NULL,
@@ -55,6 +59,12 @@ def initialize_database(database_path: Path = DEFAULT_DATABASE_PATH) -> Path:
             table="runs",
             column="profile",
             definition="TEXT NOT NULL DEFAULT 'standard'",
+        )
+        _ensure_column(
+            connection,
+            table="runs",
+            column="run_status",
+            definition="TEXT NOT NULL DEFAULT 'COMPLETE'",
         )
         connection.execute(
             """
@@ -95,6 +105,20 @@ def initialize_database(database_path: Path = DEFAULT_DATABASE_PATH) -> Path:
             )
             """
         )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS collection_statuses (
+                run_id INTEGER NOT NULL,
+                source TEXT NOT NULL,
+                target TEXT NOT NULL,
+                status TEXT NOT NULL,
+                result_count INTEGER NOT NULL,
+                return_code INTEGER,
+                error_summary TEXT NOT NULL DEFAULT '',
+                FOREIGN KEY (run_id) REFERENCES runs (id)
+            )
+            """
+        )
         _ensure_column(
             connection,
             table="screenshots",
@@ -109,6 +133,7 @@ def record_run(
     target: str,
     run_name: str = "",
     profile: str = "standard",
+    run_status: str = RunCompleteness.COMPLETE.value,
     started_at: datetime,
     completed_at: datetime,
     subdomain_count: int,
@@ -125,18 +150,20 @@ def record_run(
                 target,
                 run_name,
                 profile,
+                run_status,
                 started_at,
                 completed_at,
                 subdomain_count,
                 live_url_count,
                 url_count
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 target,
                 run_name,
                 profile,
+                run_status,
                 started_at.isoformat(),
                 completed_at.isoformat(),
                 subdomain_count,
@@ -164,6 +191,7 @@ def list_recent_runs(
                 target,
                 run_name,
                 profile,
+                run_status,
                 started_at,
                 completed_at,
                 subdomain_count,
@@ -182,11 +210,12 @@ def list_recent_runs(
             target=str(row[1]),
             run_name=str(row[2]),
             profile=str(row[3]),
-            started_at=str(row[4]),
-            completed_at=str(row[5]),
-            subdomain_count=int(row[6]),
-            live_url_count=int(row[7]),
-            url_count=int(row[8]),
+            run_status=str(row[4]),
+            started_at=str(row[5]),
+            completed_at=str(row[6]),
+            subdomain_count=int(row[7]),
+            live_url_count=int(row[8]),
+            url_count=int(row[9]),
         )
         for row in rows
     ]
@@ -330,6 +359,76 @@ def record_screenshots(
         )
 
 
+def record_collection_statuses(
+    *,
+    run_id: int,
+    statuses: list[CollectionStatus],
+    database_path: Path = DEFAULT_DATABASE_PATH,
+) -> None:
+    """Record collection quality evidence for one run."""
+    initialize_database(database_path)
+    rows = [
+        (
+            run_id,
+            status.source,
+            status.target,
+            status.status.value,
+            status.result_count,
+            status.return_code,
+            status.error_summary,
+        )
+        for status in sorted(statuses, key=_collection_status_sort_key)
+    ]
+    if not rows:
+        return
+    with sqlite3.connect(database_path) as connection:
+        connection.executemany(
+            """
+            INSERT INTO collection_statuses (
+                run_id,
+                source,
+                target,
+                status,
+                result_count,
+                return_code,
+                error_summary
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            rows,
+        )
+
+
+def get_collection_statuses(
+    *,
+    run_id: int,
+    database_path: Path = DEFAULT_DATABASE_PATH,
+) -> list[CollectionStatus]:
+    """Return deterministic collection quality evidence for one run."""
+    initialize_database(database_path)
+    with sqlite3.connect(database_path) as connection:
+        rows = connection.execute(
+            """
+            SELECT source, target, status, result_count, return_code, error_summary
+            FROM collection_statuses
+            WHERE run_id = ?
+            ORDER BY source, target, status
+            """,
+            (run_id,),
+        ).fetchall()
+    return [
+        CollectionStatus(
+            source=str(row[0]),
+            target=str(row[1]),
+            status=CollectionState(str(row[2])),
+            result_count=int(row[3]),
+            return_code=int(row[4]) if row[4] is not None else None,
+            error_summary=str(row[5]),
+        )
+        for row in rows
+    ]
+
+
 def get_previous_screenshots(
     *,
     target: str,
@@ -449,3 +548,8 @@ def _get_latest_run_id(connection: sqlite3.Connection, target: str) -> int | Non
     if row is None:
         return None
     return int(row[0])
+
+
+def _collection_status_sort_key(status: CollectionStatus) -> tuple[str, str, str]:
+    """Return stable ordering for persisted collection evidence."""
+    return (status.source, status.target, status.status.value)

@@ -72,7 +72,13 @@ def test_run_workflow_calls_wrappers_and_writes_outputs(
     def fake_validate_required_tools(tool_names: list[str]) -> None:
         validation_calls.append(tool_names)
 
-    def fake_find_subdomains(domain: str, *, binary: str, timeout: float) -> list[str]:
+    def fake_find_subdomains(
+        domain: str,
+        *,
+        binary: str,
+        timeout: float,
+        collection_statuses: object = None,
+    ) -> list[str]:
         calls.append(("subfinder", domain, binary, timeout))
         return ["a.example.com", "b.example.com"]
 
@@ -81,15 +87,28 @@ def test_run_workflow_calls_wrappers_and_writes_outputs(
         *,
         binary: str,
         timeout: float,
+        collection_statuses: object = None,
     ) -> list[str]:
         calls.append(("assetfinder", domain, binary, timeout))
         return ["c.example.com"]
 
-    def fake_find_crtsh_subdomains(domain: str, *, binary: str, timeout: float) -> list[str]:
+    def fake_find_crtsh_subdomains(
+        domain: str,
+        *,
+        binary: str,
+        timeout: float,
+        collection_statuses: object = None,
+    ) -> list[str]:
         calls.append(("crtsh", domain, binary, timeout))
         return ["b.example.com", "d.example.com"]
 
-    def fake_find_live_urls(subdomains: list[str], *, binary: str, timeout: float) -> list[str]:
+    def fake_find_live_urls(
+        subdomains: list[str],
+        *,
+        binary: str,
+        timeout: float,
+        collection_statuses: object = None,
+    ) -> list[str]:
         calls.append(("httpx", subdomains, binary, timeout))
         return ["https://a.example.com", "http://b.example.com"]
 
@@ -103,11 +122,23 @@ def test_run_workflow_calls_wrappers_and_writes_outputs(
         calls.append(("fingerprinting", urls, binary, timeout))
         return {"https://a.example.com": ["Nginx"], "http://b.example.com": ["WordPress"]}
 
-    def fake_find_urls(targets: object, *, binary: str, timeout: float) -> list[str]:
+    def fake_find_urls(
+        targets: object,
+        *,
+        binary: str,
+        timeout: float,
+        collection_statuses: object = None,
+    ) -> list[str]:
         calls.append(("gau", targets, binary, timeout))
         return ["https://a.example.com/login", "https://b.example.com/archive"]
 
-    def fake_find_wayback_urls(targets: object, *, binary: str, timeout: float) -> list[str]:
+    def fake_find_wayback_urls(
+        targets: object,
+        *,
+        binary: str,
+        timeout: float,
+        collection_statuses: object = None,
+    ) -> list[str]:
         calls.append(("waybackurls", targets, binary, timeout))
         return ["https://c.example.com/old"]
 
@@ -117,6 +148,7 @@ def test_run_workflow_calls_wrappers_and_writes_outputs(
         output_dir: Path,
         binary: str,
         timeout: float,
+        collection_statuses: object = None,
     ) -> dict[str, Path]:
         calls.append(("screenshots", urls, binary, timeout))
         return {"https://a.example.com": output_dir / "https-a-example-com.png"}
@@ -284,6 +316,7 @@ def test_run_workflow_prints_startup_progress_and_summary(
     assert "Profile: standard" in output
     assert "- subfinder: disabled, binary=subfinder, timeout=120s" in output
     assert "Complete" in output
+    assert "Run completeness: COMPLETE" in output
     assert f"Report: {reports_dir / 'example.com.md'}" in output
     assert f"- {processed_dir / 'subdomains.txt'}" in output
 
@@ -338,6 +371,11 @@ def test_run_workflow_skips_disabled_tools(tmp_path: Path, monkeypatch: MonkeyPa
     assert (processed_dir / "subdomains.txt").read_text(encoding="utf-8") == ""
     assert (processed_dir / "live_urls.txt").read_text(encoding="utf-8") == ""
     assert (processed_dir / "historical_urls.txt").read_text(encoding="utf-8") == ""
+    report_text = (tmp_path / "reports" / "example.com.md").read_text(encoding="utf-8")
+    assert "## Collection Quality" in report_text
+    assert "- assetfinder [example.com]: status=DISABLED, results=0" in report_text
+    assert "- crt.sh [example.com]: status=DISABLED, results=0" in report_text
+    assert "- gowitness [example.com]: status=DISABLED, results=0" in report_text
     assert (processed_dir / "technologies.txt").read_text(encoding="utf-8") == ""
 
 
@@ -439,12 +477,17 @@ def test_run_workflow_reports_diff_from_previous_run(
     monkeypatch.setattr(
         main,
         "find_subdomains",
-        lambda domain, *, binary, timeout: ["api.example.com", "beta.example.com"],
+        lambda domain, *, binary, timeout, collection_statuses=None: [
+            "api.example.com",
+            "beta.example.com",
+        ],
     )
     monkeypatch.setattr(
         main,
         "find_live_urls",
-        lambda subdomains, *, binary, timeout: ["https://beta.example.com"],
+        lambda subdomains, *, binary, timeout, collection_statuses=None: [
+            "https://beta.example.com"
+        ],
     )
     monkeypatch.setattr(
         main,

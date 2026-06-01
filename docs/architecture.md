@@ -10,6 +10,8 @@ Reconbot uses a small `src` layout so application code is importable as the
 - `src/reconbot/config.py` owns YAML loading and typed access helpers.
 - `src/reconbot/config_loader.py` owns packaged default configuration discovery
   and loading.
+- `src/reconbot/collection_status.py` owns typed collection quality evidence and
+  deterministic run completeness derivation.
 - `src/reconbot/doctor.py` owns local environment health checks.
 - `src/reconbot/logging_config.py` owns logging setup for console and file
   output.
@@ -237,14 +239,37 @@ Workspace runs store the database at `<workspace>/data/reconbot.db`, which keeps
 engagement run history with the rest of the engagement artifacts.
 
 The history layer is intentionally small. It creates the `runs`, `subdomains`,
-`live_urls`, `technologies`, and `screenshots` tables when needed, records
-completed runs, stores selected results, and lists recent runs.
+`live_urls`, `technologies`, `screenshots`, and `collection_statuses` tables
+when needed, records completed runs, stores selected results, and lists recent
+runs.
 
 The workflow compares current subdomains, live URLs, and technologies with the
 latest previous run for the same target before recording the current run.
 Reports show simple added and removed item counts plus the changed values. The
 project does not implement migrations, dashboards, analytics, notifications, or
 background jobs.
+
+## Collection Quality
+
+`src/reconbot/collection_status.py` records passive collection outcomes as
+first-class evidence. Each status includes a source, target, status,
+result count, optional return code, and concise error summary. Supported states
+are `SUCCESS`, `ZERO_RESULTS`, `FAILED`, `TIMED_OUT`, and `DISABLED`.
+
+Wrappers preserve their existing list-returning APIs and optionally append
+typed collection evidence. Orchestration records disabled sources and
+zero-input `httpx` or `gowitness` stages explicitly. Collection status is stored
+in SQLite history and included in markdown reports and JSON exports.
+
+Run completeness is deterministic:
+
+- `COMPLETE`: no enabled collection attempt failed.
+- `PARTIAL`: at least one enabled collection attempt failed or timed out while
+  another enabled attempt completed.
+- `FAILED`: every enabled collection attempt failed or timed out.
+
+Collection quality reporting does not add active testing, target interaction
+beyond existing passive collectors, or new external tools.
 
 ## Subprocess Runner
 

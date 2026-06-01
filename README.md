@@ -21,6 +21,8 @@ modules must preserve this boundary.
   helper functions.
 - `src/reconbot/config_loader.py` loads the packaged default configuration when
   users do not pass `--config`.
+- `src/reconbot/collection_status.py` models source-level collection quality and
+  derives overall run completeness.
 - `src/reconbot/logging_config.py` centralizes console and file logging.
 - `src/reconbot/models.py` defines `ReconTarget`, `ToolResult`, and
   `ReconReport`.
@@ -229,6 +231,12 @@ Completed run summaries are also stored in a local SQLite database at
 future features can compare runs without parsing report files.
 Reports include a small comparison against the most recent previous run for the
 same target, including added and removed subdomains and live URLs.
+Reports also include a `Collection Quality` section with source-level
+`SUCCESS`, `ZERO_RESULTS`, `FAILED`, `TIMED_OUT`, and `DISABLED` evidence.
+Enabled-source failures make a run `PARTIAL`; a run is `FAILED` when every
+enabled collection attempt fails. Collection quality and run completeness are
+stored in SQLite history and JSON exports so partial runs are visible without
+reading log files.
 Reports also include a technology summary and technology changes detected across
 live URLs.
 Those technologies are grouped into simple categories in the report and JSON

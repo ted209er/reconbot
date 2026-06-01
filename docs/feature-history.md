@@ -169,3 +169,71 @@ assets into security-relevant categories with human-readable confidence.
 
 - `make validate`
 - `git diff --check`
+
+## Collection Status
+
+### Purpose
+
+Make passive collection quality visible as first-class evidence so users can
+distinguish complete runs from partial or failed runs without reading log files.
+
+### Files Added
+
+- `src/reconbot/collection_status.py`
+- `tests/test_collection_status.py`
+
+### Files Modified
+
+- `src/reconbot/main.py`
+- `src/reconbot/history.py`
+- `src/reconbot/reporting.py`
+- `src/reconbot/exporting.py`
+- `src/reconbot/screenshots.py`
+- `src/reconbot/tools/subfinder.py`
+- `src/reconbot/tools/assetfinder.py`
+- `src/reconbot/tools/crtsh.py`
+- `src/reconbot/tools/httpx.py`
+- `src/reconbot/tools/gau.py`
+- `src/reconbot/tools/waybackurls.py`
+- `tests/test_main.py`
+- `tests/test_history.py`
+- `tests/test_reporting.py`
+- `tests/test_exporting.py`
+- `tests/test_subfinder.py`
+- `tests/test_assetfinder.py`
+- `tests/test_crtsh.py`
+- `tests/test_httpx.py`
+- `tests/test_gau.py`
+- `tests/test_waybackurls.py`
+- `tests/test_screenshots.py`
+- `tests/test_workspaces.py`
+- `README.md`
+- `docs/architecture.md`
+- `CHANGELOG.md`
+- `docs/feature-history.md`
+
+### New Commands
+
+- None.
+
+### Design Decisions
+
+- Keep existing passive wrapper return values unchanged and append optional
+  typed collection evidence for backward compatibility.
+- Record `SUCCESS`, `ZERO_RESULTS`, `FAILED`, `TIMED_OUT`, and `DISABLED`
+  states with source, target, count, optional return code, and concise error.
+- Record zero-input `httpx` and `gowitness` stages explicitly.
+- Derive deterministic `COMPLETE`, `PARTIAL`, and `FAILED` run completeness.
+- Persist collection evidence in SQLite and include it in markdown and JSON.
+
+### Follow-Up Opportunities
+
+- Add local-only doctor capability checks for screenshot browser dependencies.
+- Add screenshot artifact verification and per-URL failure diagnostics.
+- Compare run diffs against the most recent complete run when partial runs are
+  present.
+
+### Verification Results
+
+- `make validate`
+- `git diff --check`
