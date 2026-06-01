@@ -43,3 +43,22 @@ def test_run_screenshot_capture_calls_gowitness(monkeypatch: MonkeyPatch, tmp_pa
             30,
         )
     ]
+
+
+def test_run_basic_check_calls_gowitness_version(monkeypatch: MonkeyPatch) -> None:
+    calls: list[tuple[str, list[str], float | None]] = []
+
+    def fake_run_command(
+        name: str,
+        command: Sequence[str],
+        *,
+        timeout: float | None = None,
+    ) -> ToolResult:
+        calls.append((name, list(command), timeout))
+        return ToolResult(name=name, success=True, command=list(command))
+
+    monkeypatch.setattr(gowitness, "run_command", fake_run_command)
+
+    gowitness.run_basic_check(binary="custom-gowitness", timeout=4)
+
+    assert calls == [("gowitness", ["custom-gowitness", "version"], 4)]

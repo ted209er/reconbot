@@ -15,15 +15,18 @@ from reconbot.history import (
     get_previous_screenshots,
     get_previous_subdomains,
     get_previous_technologies,
+    get_screenshot_diagnostics,
     initialize_database,
     list_recent_runs,
     record_collection_statuses,
     record_live_urls,
     record_run,
+    record_screenshot_diagnostics,
     record_screenshots,
     record_subdomains,
     record_technologies,
 )
+from reconbot.screenshots import ScreenshotDiagnostic, ScreenshotStatus
 
 
 def test_initialize_database_creates_schema(tmp_path: Path) -> None:
@@ -284,3 +287,34 @@ def test_records_and_reads_collection_statuses(tmp_path: Path) -> None:
         statuses[1],
         statuses[0],
     ]
+
+
+def test_records_and_reads_screenshot_diagnostics(tmp_path: Path) -> None:
+    database_path = tmp_path / "reconbot.db"
+    started_at = datetime(2026, 5, 29, 12, 0, tzinfo=UTC)
+    run_id = record_run(
+        target="example.com",
+        started_at=started_at,
+        completed_at=started_at + timedelta(seconds=5),
+        subdomain_count=0,
+        live_url_count=1,
+        url_count=0,
+        database_path=database_path,
+    )
+    diagnostics = [
+        ScreenshotDiagnostic(
+            url="https://example.com",
+            status=ScreenshotStatus.NO_ARTIFACT,
+            screenshot_path=None,
+            return_code=0,
+            error="missing artifact",
+        )
+    ]
+
+    record_screenshot_diagnostics(
+        run_id=run_id,
+        diagnostics=diagnostics,
+        database_path=database_path,
+    )
+
+    assert get_screenshot_diagnostics(run_id=run_id, database_path=database_path) == diagnostics

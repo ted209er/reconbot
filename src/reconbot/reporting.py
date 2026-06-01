@@ -9,6 +9,7 @@ from reconbot.collection_status import CollectionStatus, RunCompleteness
 from reconbot.guidance import AssetGuidance
 from reconbot.models import ReconReport
 from reconbot.prioritization import PrioritizedAsset
+from reconbot.screenshots import ScreenshotDiagnostic, ScreenshotStatus
 from reconbot.technology_categories import (
     ASSET_CATEGORY_ORDER,
     CATEGORY_ORDER,
@@ -38,6 +39,8 @@ def write_markdown_report(
     guidance_summary: Mapping[str, int] | None = None,
     collection_statuses: list[CollectionStatus] | None = None,
     run_status: RunCompleteness = RunCompleteness.COMPLETE,
+    screenshots_enabled: bool = False,
+    screenshot_diagnostics: list[ScreenshotDiagnostic] | None = None,
 ) -> Path:
     """Write a plain markdown report to disk."""
     report_path.parent.mkdir(parents=True, exist_ok=True)
@@ -62,6 +65,8 @@ def write_markdown_report(
         guidance_summary,
         collection_statuses,
         run_status,
+        screenshots_enabled,
+        screenshot_diagnostics,
     )
     report_path.write_text(markdown, encoding="utf-8")
     return report_path
@@ -88,6 +93,8 @@ def build_markdown_report(
     guidance_summary: Mapping[str, int] | None = None,
     collection_statuses: list[CollectionStatus] | None = None,
     run_status: RunCompleteness = RunCompleteness.COMPLETE,
+    screenshots_enabled: bool = False,
+    screenshot_diagnostics: list[ScreenshotDiagnostic] | None = None,
 ) -> str:
     """Build a plain markdown report for a recon run."""
     lines = [
@@ -118,7 +125,14 @@ def build_markdown_report(
     if technology_diff is not None:
         lines.extend(_build_technology_changes_section(technology_diff))
     if screenshots is not None:
-        lines.extend(_build_screenshot_section(screenshots, screenshot_diff))
+        lines.extend(
+            _build_screenshot_section(
+                screenshots,
+                screenshot_diff,
+                enabled=screenshots_enabled,
+                diagnostics=screenshot_diagnostics,
+            )
+        )
     if prioritized_assets is not None:
         lines.extend(_build_prioritized_asset_section(prioritized_assets))
     if investigation_guidance is not None:
@@ -295,16 +309,27 @@ def _build_asset_categories_section(
 def _build_screenshot_section(
     screenshots: Mapping[str, Path],
     screenshot_diff: Mapping[str, list[str]] | None,
+    *,
+    enabled: bool,
+    diagnostics: list[ScreenshotDiagnostic] | None,
 ) -> list[str]:
     """Build markdown lines for captured screenshots."""
     added = screenshot_diff.get("added_screenshots", []) if screenshot_diff else []
     removed = screenshot_diff.get("removed_screenshots", []) if screenshot_diff else []
+    diagnostic_items = diagnostics or []
+    failures = [
+        diagnostic
+        for diagnostic in diagnostic_items
+        if diagnostic.status != ScreenshotStatus.SUCCESS
+    ]
     lines = [
         "## Screenshots",
         "",
         "Screenshot Summary:",
         "",
+        f"- Screenshot collection enabled: {'yes' if enabled else 'no'}",
         f"- Screenshots captured: {len(screenshots)}",
+        f"- Screenshot failures: {len(failures)}/{len(diagnostic_items)} assets failed",
         f"- New screenshot targets: {len(added)}",
         f"- Removed screenshot targets: {len(removed)}",
         "",
@@ -314,6 +339,12 @@ def _build_screenshot_section(
         lines.append("")
         for path in sorted(str(path) for path in screenshots.values()):
             lines.append(f"- {path}")
+        lines.append("")
+    if failures:
+        lines.append("Screenshot warnings:")
+        lines.append("")
+        for diagnostic in sorted(failures, key=lambda item: item.url):
+            lines.append(f"- {diagnostic.url}: {diagnostic.status.value} - {diagnostic.error}")
         lines.append("")
     if screenshot_diff is not None:
         lines.append("New screenshot targets:")

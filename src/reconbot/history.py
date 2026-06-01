@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from reconbot.collection_status import CollectionState, CollectionStatus, RunCompleteness
+from reconbot.screenshots import ScreenshotDiagnostic, ScreenshotStatus
 
 DEFAULT_DATABASE_PATH = Path("data/reconbot.db")
 
@@ -115,6 +116,19 @@ def initialize_database(database_path: Path = DEFAULT_DATABASE_PATH) -> Path:
                 result_count INTEGER NOT NULL,
                 return_code INTEGER,
                 error_summary TEXT NOT NULL DEFAULT '',
+                FOREIGN KEY (run_id) REFERENCES runs (id)
+            )
+            """
+        )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS screenshot_diagnostics (
+                run_id INTEGER NOT NULL,
+                url TEXT NOT NULL,
+                status TEXT NOT NULL,
+                screenshot_path TEXT,
+                return_code INTEGER NOT NULL,
+                error TEXT NOT NULL DEFAULT '',
                 FOREIGN KEY (run_id) REFERENCES runs (id)
             )
             """
@@ -424,6 +438,73 @@ def get_collection_statuses(
             result_count=int(row[3]),
             return_code=int(row[4]) if row[4] is not None else None,
             error_summary=str(row[5]),
+        )
+        for row in rows
+    ]
+
+
+def record_screenshot_diagnostics(
+    *,
+    run_id: int,
+    diagnostics: list[ScreenshotDiagnostic],
+    database_path: Path = DEFAULT_DATABASE_PATH,
+) -> None:
+    """Record auditable per-URL screenshot collection results."""
+    initialize_database(database_path)
+    rows = [
+        (
+            run_id,
+            diagnostic.url,
+            diagnostic.status.value,
+            str(diagnostic.screenshot_path) if diagnostic.screenshot_path is not None else None,
+            diagnostic.return_code,
+            diagnostic.error,
+        )
+        for diagnostic in sorted(diagnostics, key=lambda item: item.url)
+    ]
+    if not rows:
+        return
+    with sqlite3.connect(database_path) as connection:
+        connection.executemany(
+            """
+            INSERT INTO screenshot_diagnostics (
+                run_id,
+                url,
+                status,
+                screenshot_path,
+                return_code,
+                error
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            rows,
+        )
+
+
+def get_screenshot_diagnostics(
+    *,
+    run_id: int,
+    database_path: Path = DEFAULT_DATABASE_PATH,
+) -> list[ScreenshotDiagnostic]:
+    """Return deterministic per-URL screenshot collection results."""
+    initialize_database(database_path)
+    with sqlite3.connect(database_path) as connection:
+        rows = connection.execute(
+            """
+            SELECT url, status, screenshot_path, return_code, error
+            FROM screenshot_diagnostics
+            WHERE run_id = ?
+            ORDER BY url
+            """,
+            (run_id,),
+        ).fetchall()
+    return [
+        ScreenshotDiagnostic(
+            url=str(row[0]),
+            status=ScreenshotStatus(str(row[1])),
+            screenshot_path=Path(str(row[2])) if row[2] is not None else None,
+            return_code=int(row[3]),
+            error=str(row[4]),
         )
         for row in rows
     ]

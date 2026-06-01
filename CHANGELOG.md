@@ -33,6 +33,10 @@ Reconbot uses simple semantic versioning:
 - Added typed collection quality evidence for passive sources, including
   success, zero-result, failure, timeout, and disabled states; SQLite history;
   JSON export metadata; markdown reporting; and deterministic run completeness.
+- Added auditable per-URL screenshot diagnostics with artifact verification,
+  failure reasons, collection-status integration, SQLite history, report
+  warnings, JSON export fields, and local-only doctor checks for `gowitness` and
+  screenshot browser availability.
 
 ## [0.1.0] - Initial MVP
 

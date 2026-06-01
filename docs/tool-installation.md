@@ -127,6 +127,14 @@ curl --version
 If any command prints `command not found`, fix that tool before starting a
 Reconbot run.
 
+For screenshot support, also confirm Chrome or Chromium is available:
+
+```bash
+chromium --version
+# or
+google-chrome --version
+```
+
 ## First Run
 
 From the repo root:
@@ -151,8 +159,9 @@ target.
 When `--config` is omitted, Reconbot uses the packaged default config installed
 with the application.
 
-`reconbot doctor` checks Python, packaged config loading, SQLite, and external
-tool availability without contacting targets or running recon.
+`reconbot doctor` checks Python, packaged config loading, SQLite, external tool
+availability, local `gowitness version` execution, and Chrome or Chromium
+availability without contacting targets or running recon.
 
 ## Running From A Workspace
 
@@ -202,6 +211,23 @@ curl --version
 If the command fails, install the tool, reopen your terminal, or update the
 matching `tools.<name>.binary` value in `configs/default.yaml` to the full
 executable path.
+
+### Screenshot Failures
+
+If reports show `FAILED`, `TIMED_OUT`, or `NO_ARTIFACT` screenshot diagnostics,
+run:
+
+```bash
+reconbot doctor
+gowitness version
+chromium --version
+# or
+google-chrome --version
+```
+
+`NO_ARTIFACT` means `gowitness` returned successfully but Reconbot could not
+find a non-empty screenshot file at the expected path. Review the per-URL error
+in the markdown report or JSON export before retrying.
 
 ### Custom Config
 
