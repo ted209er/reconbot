@@ -17,6 +17,8 @@ def build_parser() -> argparse.ArgumentParser:
     """Build the Reconbot command-line parser."""
     if _is_doctor_command():
         return build_doctor_parser()
+    if _is_plan_command():
+        return build_plan_parser()
     return build_run_parser()
 
 
@@ -84,11 +86,30 @@ def build_doctor_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def build_plan_parser() -> argparse.ArgumentParser:
+    """Build the local-only investigation planning command parser."""
+    parser = argparse.ArgumentParser(
+        prog="reconbot plan",
+        description="Build a local-only investigation dossier from workspace artifacts.",
+    )
+    parser.set_defaults(command="plan")
+    parser.add_argument(
+        "--workspace",
+        type=_workspace_path,
+        required=True,
+        metavar="PATH",
+        help="Existing engagement workspace containing Reconbot artifacts.",
+    )
+    return parser
+
+
 def parse_args(args: Sequence[str] | None = None) -> argparse.Namespace:
     """Parse command-line arguments."""
     argv = list(args) if args is not None else sys.argv[1:]
     if argv and argv[0] == "doctor":
         return build_doctor_parser().parse_args(argv[1:])
+    if argv and argv[0] == "plan":
+        return build_plan_parser().parse_args(argv[1:])
     parsed = build_run_parser().parse_args(argv)
     parsed.command = "run"
     return parsed
@@ -97,6 +118,11 @@ def parse_args(args: Sequence[str] | None = None) -> argparse.Namespace:
 def _is_doctor_command() -> bool:
     """Return true when process argv is invoking the doctor command."""
     return len(sys.argv) > 1 and sys.argv[1] == "doctor"
+
+
+def _is_plan_command() -> bool:
+    """Return true when process argv is invoking the plan command."""
+    return len(sys.argv) > 1 and sys.argv[1] == "plan"
 
 
 def _domain(value: str) -> str:

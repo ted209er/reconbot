@@ -41,6 +41,9 @@ Reconbot uses simple semantic versioning:
   category assignments, confidence scoring, TSV output, SQLite storage, full
   JSON exports, explicit unverified reachability labels, and a concise
   top-leads markdown section.
+- Added `reconbot plan --workspace PATH` for local-only investigation dossiers
+  that combine existing workspace evidence into prioritized markdown and JSON
+  manual review plans.
 
 ## [0.1.0] - Initial MVP
 

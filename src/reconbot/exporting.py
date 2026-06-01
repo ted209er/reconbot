@@ -48,6 +48,7 @@ def build_json_export(
     run_status: RunCompleteness = RunCompleteness.COMPLETE,
     screenshot_diagnostics: list[ScreenshotDiagnostic] | None = None,
     historical_url_intelligence: list[HistoricalUrlFinding] | None = None,
+    asset_diff: Mapping[str, list[str]] | None = None,
 ) -> dict[str, Any]:
     """Build a deterministic JSON-serializable export."""
     screenshot_paths = {url: str(path) for url, path in sorted(screenshots.items())}
@@ -84,6 +85,7 @@ def build_json_export(
         "investigation_guidance_summary": dict(guidance_summary or {}),
         "collection_status": _collection_statuses(collection_statuses or []),
         "technology_changes": _sorted_change_lists(technology_diff),
+        "asset_changes": _sorted_change_lists(asset_diff or {}),
         "screenshot_paths": screenshot_paths,
         "screenshot_status": {
             diagnostic.url: diagnostic.status.value

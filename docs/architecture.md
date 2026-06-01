@@ -28,6 +28,7 @@ Reconbot uses a small `src` layout so application code is importable as the
 - `src/reconbot/guidance.py` owns safe manual investigation suggestions.
 - `src/reconbot/profiles.py` owns passive scan profile overlays for existing
   tool settings.
+- `src/reconbot/planning.py` owns local-only investigation dossier generation.
 - `src/reconbot/screenshots.py` owns passive screenshot capture.
 - `src/reconbot/url_intelligence.py` owns deterministic classification of
   passively collected historical URLs.
@@ -278,6 +279,27 @@ presence is not evidence that the same URL is currently reachable. The
 classifier uses only already-collected URLs, `urllib.parse`, suffix analysis,
 and readable keyword mappings. It does not crawl, fetch archived pages, probe
 targets, test vulnerabilities, or use AI-generated classifications.
+
+## Review Dossier
+
+`src/reconbot/planning.py` implements
+`reconbot plan --workspace PATH`. The command reads existing workspace JSON
+exports, the matching SQLite run summary in read-only mode, and the
+human-maintained `scope.txt` file. It writes
+`reports/investigation-plan.md` and `reports/investigation-plan.json` under the
+workspace.
+
+The dossier combines collection quality, new and changed assets, asset and
+technology categories, historical URL intelligence, prioritization scores, and
+safe manual investigation guidance. Top review candidates remain deterministic
+and explainable and are limited to 25 entries for readable markdown output.
+
+The dossier clearly distinguishes `Current Observation` from `Historical Lead`
+and `In Scope` from `Unknown Scope`. Historical leads retain `unverified`
+reachability. Unknown-scope assets appear under `Owner Confirmation Needed`.
+
+Planning is local-only. It does not run recon, invoke external tools, contact
+targets, generate findings with AI, claim vulnerabilities, or automate testing.
 
 ## Collection Quality
 
